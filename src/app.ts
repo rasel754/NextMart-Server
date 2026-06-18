@@ -12,7 +12,7 @@ import notFound from "./app/middleware/notFound";
 const app: Application = express();
 
 // Middleware setup
-app.use(cors({ origin: "http://localhost:3000" }));
+app.use(cors({ origin: "https://next-mart-client-sable.vercel.app" }));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
