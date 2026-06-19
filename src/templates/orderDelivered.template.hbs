@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Your Order Has Been Delivered!</title>
+   <style>
+      body {
+         font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         background-color: #0b0f19;
+         margin: 0;
+         padding: 0;
+         color: #e2e8f0;
+      }
+      .email-wrapper {
+         max-width: 600px;
+         margin: 30px auto;
+         background-color: #111827;
+         border-radius: 16px;
+         overflow: hidden;
+         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+         border: 1px solid #1f2937;
+      }
+      .header {
+         background: linear-gradient(135deg, #10b981, #059669);
+         padding: 40px 30px;
+         text-align: center;
+         color: #ffffff;
+      }
+      .logo {
+         max-height: 48px;
+         margin-bottom: 15px;
+      }
+      .header h2 {
+         margin: 0;
+         font-size: 26px;
+         font-weight: 700;
+         letter-spacing: -0.5px;
+      }
+      .content {
+         padding: 40px 30px;
+         line-height: 1.7;
+      }
+      .content h1 {
+         color: #10b981;
+         font-size: 22px;
+         margin-top: 0;
+         font-weight: 600;
+      }
+      .highlight-box {
+         background-color: #1f2937;
+         border-left: 4px solid #10b981;
+         padding: 20px;
+         border-radius: 8px;
+         margin: 25px 0;
+      }
+      .highlight-box table {
+         width: 100%;
+         border-collapse: collapse;
+      }
+      .highlight-box td {
+         padding: 6px 0;
+         font-size: 15px;
+      }
+      .highlight-box td.label {
+         color: #9ca3af;
+         font-weight: 500;
+      }
+      .highlight-box td.value {
+         color: #f3f4f6;
+         font-weight: 600;
+         text-align: right;
+      }
+      .cta-button {
+         display: block;
+         background-color: #10b981;
+         color: #ffffff !important;
+         text-decoration: none;
+         padding: 14px 30px;
+         font-size: 16px;
+         font-weight: 600;
+         border-radius: 8px;
+         margin: 30px auto;
+         text-align: center;
+         box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+         max-width: 200px;
+         transition: all 0.3s ease;
+      }
+      .footer {
+         background-color: #0d131f;
+         padding: 25px 30px;
+         text-align: center;
+         font-size: 13px;
+         color: #6b7280;
+         border-top: 1px solid #1f2937;
+      }
+      .footer a {
+         color: #10b981;
+         text-decoration: none;
+         font-weight: 500;
+      }
+   </style>
+</head>
+<body>
+   <div class="email-wrapper">
+      <div class="header">
+         <img class="logo" src="https://res.cloudinary.com/dbgrq28js/image/upload/v1736763971/logoipsum-282_ilqjfb_paw4if.png" alt="NextMart Logo" />
+         <h2>Package Delivered!</h2>
+      </div>
+      <div class="content">
+         <h1>Hi {{userName}},</h1>
+         <p>Great news! Your package has been successfully delivered. We hope you love your new purchase!</p>
+         
+         <div class="highlight-box">
+            <table>
+               <tr>
+                  <td class="label">Order ID</td>
+                  <td class="value">#{{orderId}}</td>
+               </tr>
+               <tr>
+                  <td class="label">Total Amount Paid</td>
+                  <td class="value">${{totalAmount}}</td>
+               </tr>
+               <tr>
+                  <td class="label">Delivery Status</td>
+                  <td class="value" style="color: #10b981;">Delivered / Completed</td>
+               </tr>
+            </table>
+         </div>
+
+         <p>Your opinion matters greatly to our community. Could you take a moment to share your experience? Rate and review your purchased products to help other buyers make informed choices!</p>
+         
+         <a href="https://next-mart-client-sable.vercel.app/dashboard/my-orders" class="cta-button">Write a Review</a>
+
+         <p>If you have any issues with your delivery or the products received, please contact our support team immediately by replying to this email.</p>
+         <p>Thank you for choosing NextMart!</p>
+         <p>Warm regards,<br><strong>The NextMart Team</strong></p>
+      </div>
+      <div class="footer">
+         <p>© 2026 NextMart Ltd. Level-4, 34, Awal Centre, Banani, Dhaka.</p>
+         <p>This is an automated delivery notification. Please do not reply directly to this message unless you need customer support.</p>
+      </div>
+   </div>
+</body>
+</html>

@@ -6,216 +6,301 @@ import Shop from '../shop/shop.model';
 import User from '../user/user.model';
 import { Product } from '../product/product.model';
 import { Payment } from '../payment/payment.model';
+import mongoose from 'mongoose';
 
-
-const getMetaData = async (query: Record<string, unknown>, authUser: IJwtPayload) => {
-   const { startDate, endDate } = query;
-
-   // For Admin-based meta data
-   if (authUser.role === 'admin') {
-      const totalShops = await Shop.countDocuments();
-      const totalUsers = await User.countDocuments();
-      const totalOrders = await Order.countDocuments();
-      const totalProducts = await Product.countDocuments();
-
-      const totalRevenue = await Order.aggregate([
-         { $group: { _id: null, totalRevenue: { $sum: '$totalAmount' } } },
-      ]);
-
-      const totalPayments = await Payment.countDocuments();
-
-      const paymentStatusCounts = await Payment.aggregate([
-         { $group: { _id: '$status', totalPayments: { $sum: 1 } } },
-         { $project: { status: '$_id', totalPayments: 1, _id: 0 } },
-      ]);
-
-      // More statistics you can add for admin
-      const activeShops = await Shop.countDocuments({ isActive: true });
-      const inactiveShops = await Shop.countDocuments({ isActive: false });
-
-      return {
-         totalShops,
-         totalUsers,
-         totalOrders,
-         totalProducts,
-         totalRevenue: totalRevenue[0]?.totalRevenue || 0,
-         totalPayments,
-         paymentStatusCounts,
-         activeShops,
-         inactiveShops
-      };
+const getLast6Months = () => {
+   const months: string[] = [];
+   const date = new Date();
+   for (let i = 5; i >= 0; i--) {
+      const d = new Date(date.getFullYear(), date.getMonth() - i, 1);
+      months.push(d.toLocaleString('en-US', { month: 'short', year: 'numeric' }));
    }
-
-   // For User-based data (when the user has a shop)
-   if (authUser.role === 'user') {
-      const userShop = await Shop.findOne({ user: authUser.userId });
-
-      if (!userShop) {
-         throw new Error('User does not have a valid shop.');
-      }
-
-      // Pie chart data
-      const pieChartData = await Order.aggregate([
-         { $match: { shop: userShop._id } },
-         { $group: { _id: '$products.category', total: { $sum: '$totalAmount' } } },
-         { $project: { category: '$_id', totalAmount: 1, _id: 0 } },
-      ]);
-
-      // Bar chart data (total orders per month)
-      const barChartData = await Order.aggregate([
-         { $match: { shop: userShop._id } },
-         { $group: { _id: { $month: '$createdAt' }, totalOrders: { $sum: 1 } } },
-         { $sort: { '_id': 1 } },
-         { $project: { month: '$_id', totalOrders: 1, _id: 0 } },
-      ]);
-
-      // Line chart data (sales over time)
-      const lineChartData = await Order.aggregate([
-         { $match: { shop: userShop._id } },
-         { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, totalSales: { $sum: '$totalAmount' } } },
-         { $sort: { '_id': 1 } },
-         { $project: { date: '$_id', totalSales: 1, _id: 0 } },
-      ]);
-
-      // Payment data (filter by start and end date)
-      const paymentData = await Payment.aggregate([
-         { $match: { shop: userShop._id } },
-         ...(
-            startDate && endDate
-               ? [
-                  {
-                     $match: {
-                        createdAt: {
-                           $gte: new Date(startDate as string),
-                           $lte: new Date(endDate as string),
-                        },
-                     },
-                  },
-               ]
-               : []
-         ),
-         { $group: { _id: '$status', totalPayments: { $sum: 1 } } },
-         { $project: { status: '$_id', totalPayments: 1, _id: 0 } },
-      ]);
-
-
-      // Order data (based on shop)
-      const orderData = await Order.aggregate([
-         { $match: { shop: userShop._id } },
-         { $group: { _id: '$status', totalOrders: { $sum: 1 } } },
-         { $project: { status: '$_id', totalOrders: 1, _id: 0 } },
-      ]);
-
-      // More statistics for user
-      const totalOrdersForUser = await Order.countDocuments({ shop: userShop._id });
-      const totalRevenueForUser = await Order.aggregate([
-         { $match: { shop: userShop._id } },
-         { $group: { _id: null, totalRevenue: { $sum: '$totalAmount' } } },
-      ]);
-
-      // Today's Sales - Filter orders placed today
-      const today = new Date();
-      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-      const endOfDay = new Date(today.setHours(23, 59, 59, 999));
-
-      const todaysSales = await Order.aggregate([
-         { $match: { shop: userShop._id, createdAt: { $gte: startOfDay, $lte: endOfDay } } },
-         { $group: { _id: null, totalSales: { $sum: '$totalAmount' } } },
-      ]);
-
-      const todaysSalesAmount = todaysSales[0]?.totalSales || 0;
-
-      return {
-         pieChartData,
-         barChartData,
-         lineChartData,
-         paymentData,
-         orderData,
-         totalOrdersForUser,
-         totalRevenueForUser: totalRevenueForUser[0]?.totalRevenue || 0,
-         todaysSalesAmount,
-      };
-   }
-
-   throw new Error('User does not have the required permissions or shop.');
+   return months;
 };
 
-export default getMetaData;
+const getAdminMeta = async () => {
+   const totalRevenueAgg = await Order.aggregate([
+      { $match: { paymentStatus: 'Paid' } },
+      { $group: { _id: null, total: { $sum: '$finalAmount' } } }
+   ]);
+   const totalRevenue = totalRevenueAgg[0]?.total || 0;
 
+   const totalOrders = await Order.countDocuments();
+   const totalUsers = await User.countDocuments({ role: 'user' });
+   const totalShops = await Shop.countDocuments();
+   const totalProducts = await Product.countDocuments();
 
-const getOrdersByDate = async (
-   startDate: string,
-   endDate?: string,
-   groupBy?: string
-) => {
-   console.log({ startDate });
+   const sixMonthsAgo = new Date();
+   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+   sixMonthsAgo.setDate(1);
+   sixMonthsAgo.setHours(0, 0, 0, 0);
 
-   if (startDate && !endDate) {
-      const orders = await Order.aggregate([
-         {
-            $group: {
-               _id: {
-                  date: {
-                     $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
-                  },
-               },
-               count: { $sum: 1 },
+   // 1. Monthly revenue
+   const monthlyRevenueAgg = await Order.aggregate([
+      {
+         $match: {
+            paymentStatus: 'Paid',
+            createdAt: { $gte: sixMonthsAgo }
+         }
+      },
+      {
+         $group: {
+            _id: {
+               year: { $year: '$createdAt' },
+               month: { $month: '$createdAt' }
             },
-         },
-         {
-            $match: {
-               '_id.date': startDate,
-            },
-         },
-      ]);
-
-      if (orders.length === 0) {
-         throw new AppError(
-            StatusCodes.NOT_FOUND,
-            'No orders found for the given date'
-         );
+            revenue: { $sum: '$finalAmount' }
+         }
       }
+   ]);
 
-      return orders;
-   }
-
-   if (startDate && endDate) {
-      const orders = await Order.aggregate([
-         {
-            $group: {
-               _id: {
-                  date: {
-                     $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
-                  },
-               },
-               count: { $sum: 1 },
+   // 2. Monthly orders
+   const monthlyOrdersAgg = await Order.aggregate([
+      {
+         $match: {
+            createdAt: { $gte: sixMonthsAgo }
+         }
+      },
+      {
+         $group: {
+            _id: {
+               year: { $year: '$createdAt' },
+               month: { $month: '$createdAt' }
             },
-         },
-         {
-            $match: {
-               '_id.date': {
-                  $gte: startDate,
-                  $lte: endDate,
-               },
-            },
-         },
-      ]);
-
-      if (orders.length === 0) {
-         throw new AppError(
-            StatusCodes.NOT_FOUND,
-            'No orders found for the given date range'
-         );
+            count: { $sum: 1 }
+         }
       }
+   ]);
 
-      return orders;
+   // 3. New users per month
+   const newUsersAgg = await User.aggregate([
+      {
+         $match: {
+            role: 'user',
+            createdAt: { $gte: sixMonthsAgo }
+         }
+      },
+      {
+         $group: {
+            _id: {
+               year: { $year: '$createdAt' },
+               month: { $month: '$createdAt' }
+            },
+            count: { $sum: 1 }
+         }
+      }
+   ]);
+
+   // Helper arrays formatting
+   const monthsList = getLast6Months();
+   
+   const revenueMap = new Map<string, number>();
+   monthlyRevenueAgg.forEach(item => {
+      const monthStr = new Date(item._id.year, item._id.month - 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
+      revenueMap.set(monthStr, item.revenue);
+   });
+   const monthlyRevenue = monthsList.map(month => ({
+      month,
+      revenue: revenueMap.get(month) || 0
+   }));
+
+   const ordersMap = new Map<string, number>();
+   monthlyOrdersAgg.forEach(item => {
+      const monthStr = new Date(item._id.year, item._id.month - 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
+      ordersMap.set(monthStr, item.count);
+   });
+   const monthlyOrders = monthsList.map(month => ({
+      month,
+      count: ordersMap.get(month) || 0
+   }));
+
+   const usersMap = new Map<string, number>();
+   newUsersAgg.forEach(item => {
+      const monthStr = new Date(item._id.year, item._id.month - 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
+      usersMap.set(monthStr, item.count);
+   });
+   const newUsersPerMonth = monthsList.map(month => ({
+      month,
+      count: usersMap.get(month) || 0
+   }));
+
+   // 4. Order status distribution
+   const orderStatusDistribution = await Order.aggregate([
+      {
+         $group: {
+            _id: '$status',
+            count: { $sum: 1 }
+         }
+      },
+      {
+         $project: {
+            _id: 0,
+            status: {
+               $cond: {
+                  if: { $eq: ['$_id', 'Completed'] },
+                  then: 'delivered',
+                  else: { $toLower: '$_id' }
+               }
+            },
+            count: 1
+         }
+      }
+   ]);
+
+   return {
+      totalRevenue,
+      totalOrders,
+      totalUsers,
+      totalShops,
+      totalProducts,
+      monthlyRevenue,
+      monthlyOrders,
+      orderStatusDistribution,
+      newUsersPerMonth
+   };
+};
+
+const getVendorMeta = async (authUser: IJwtPayload) => {
+   const shop = await Shop.findOne({ user: authUser.userId });
+   if (!shop) {
+      throw new AppError(StatusCodes.NOT_FOUND, 'Vendor shop not found');
    }
 
-   if (startDate && endDate && groupBy === 'week') {
-   }
+   const totalRevenueAgg = await Order.aggregate([
+      {
+         $match: {
+            shop: shop._id,
+            paymentStatus: 'Paid'
+         }
+      },
+      {
+         $group: {
+            _id: null,
+            total: { $sum: '$finalAmount' }
+         }
+      }
+   ]);
+   const totalRevenue = totalRevenueAgg[0]?.total || 0;
+
+   const totalOrders = await Order.countDocuments({ shop: shop._id });
+   const totalProducts = await Product.countDocuments({ shop: shop._id });
+
+   const sixMonthsAgo = new Date();
+   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+   sixMonthsAgo.setDate(1);
+   sixMonthsAgo.setHours(0, 0, 0, 0);
+
+   // 1. Monthly sales
+   const monthlySalesAgg = await Order.aggregate([
+      {
+         $match: {
+            shop: shop._id,
+            paymentStatus: 'Paid',
+            createdAt: { $gte: sixMonthsAgo }
+         }
+      },
+      {
+         $group: {
+            _id: {
+               year: { $year: '$createdAt' },
+               month: { $month: '$createdAt' }
+            },
+            revenue: { $sum: '$finalAmount' }
+         }
+      }
+   ]);
+
+   const monthsList = getLast6Months();
+   const salesMap = new Map<string, number>();
+   monthlySalesAgg.forEach(item => {
+      const monthStr = new Date(item._id.year, item._id.month - 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
+      salesMap.set(monthStr, item.revenue);
+   });
+   const monthlySales = monthsList.map(month => ({
+      month,
+      revenue: salesMap.get(month) || 0
+   }));
+
+   // 2. Category revenue aggregation
+   const categoryRevenue = await Order.aggregate([
+      {
+         $match: {
+            shop: shop._id,
+            paymentStatus: 'Paid'
+         }
+      },
+      {
+         $unwind: '$products'
+      },
+      {
+         $lookup: {
+            from: 'products',
+            localField: 'products.product',
+            foreignField: '_id',
+            as: 'productDetails'
+         }
+      },
+      {
+         $unwind: '$productDetails'
+      },
+      {
+         $lookup: {
+            from: 'categories',
+            localField: 'productDetails.category',
+            foreignField: '_id',
+            as: 'categoryDetails'
+         }
+      },
+      {
+         $unwind: '$categoryDetails'
+      },
+      {
+         $group: {
+            _id: '$categoryDetails.name',
+            revenue: { $sum: { $multiply: ['$products.quantity', '$products.unitPrice'] } }
+         }
+      },
+      {
+         $project: {
+            _id: 0,
+            category: '$_id',
+            revenue: 1
+         }
+      }
+   ]);
+
+   // 3. Today's sales
+   const todayStart = new Date();
+   todayStart.setHours(0, 0, 0, 0);
+
+   const todaySalesAgg = await Order.aggregate([
+      {
+         $match: {
+            shop: shop._id,
+            paymentStatus: 'Paid',
+            createdAt: { $gte: todayStart }
+         }
+      },
+      {
+         $group: {
+            _id: null,
+            total: { $sum: '$finalAmount' }
+         }
+      }
+   ]);
+   const todaySales = todaySalesAgg[0]?.total || 0;
+
+   return {
+      totalRevenue,
+      totalOrders,
+      totalProducts,
+      monthlySales,
+      categoryRevenue,
+      todaySales
+   };
 };
 
 export const MetaService = {
-   getMetaData,
-   getOrdersByDate,
+   getAdminMeta,
+   getVendorMeta,
 };

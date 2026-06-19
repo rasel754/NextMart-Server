@@ -23,17 +23,20 @@ const createFlashSale = async (flashSellData: ICreateFlashSaleInput, authUser: I
 
   if (!shopIsActive) throw new AppError(StatusCodes.BAD_REQUEST, "Shop is not active!");
 
-  const { products, discountPercentage } = flashSellData;
+  const { products, discountPercentage, startTime, endTime } = flashSellData;
   const createdBy = authUser.userId;
 
   const operations = products.map((product) => ({
     updateOne: {
       filter: { product },
       update: {
-        $setOnInsert: {
+        $set: {
           product,
           discountPercentage,
           createdBy,
+          startTime: new Date(startTime),
+          endTime: new Date(endTime),
+          isActive: false
         },
       },
       upsert: true,
@@ -45,42 +48,30 @@ const createFlashSale = async (flashSellData: ICreateFlashSaleInput, authUser: I
 };
 
 const getActiveFlashSalesService = async (query: Record<string, unknown>) => {
-  const { minPrice, maxPrice, ...pQuery } = query;
-
   const flashSaleQuery = new QueryBuilder(
-    FlashSale.find()
-      .populate('product')
-      .populate('product.category', 'name')
-      .populate('product.shop', 'shopName')
-      .populate('product.brand', 'name'),
+    FlashSale.find({ isActive: true })
+      .populate({
+        path: 'product',
+        populate: { path: 'category brand shop' }
+      }),
     query
   )
     .paginate();
 
   const flashSales = await flashSaleQuery.modelQuery.lean();
-
-  const flashSaleMap = flashSales.reduce((acc, flashSale) => {
-    //@ts-ignore
-    acc[flashSale.product._id.toString()] = flashSale.discountPercentage;
-    return acc;
-  }, {});
-
-  const productsWithOfferPrice = flashSales.map((flashSale: any) => {
-    const product = flashSale.product;
-    //@ts-ignore
-    const discountPercentage = flashSaleMap[product._id.toString()];
-
-    if (discountPercentage) {
-      const discount = (discountPercentage / 100) * product.price;
-      product.offerPrice = product.price - discount;
-    } else {
-      product.offerPrice = null;
-    }
-
-    return product;
-  });
-
   const meta = await flashSaleQuery.countTotal();
+
+  const productsWithOfferPrice = flashSales.map((sale: any) => {
+    const product = sale.product;
+    if (product) {
+      const discount = (sale.discountPercentage / 100) * product.price;
+      product.offerPrice = product.price - discount;
+      product.flashSalePrice = product.price - discount;
+      product.isOnFlashSale = true;
+      return product;
+    }
+    return null;
+  }).filter(Boolean);
 
   return {
     meta,

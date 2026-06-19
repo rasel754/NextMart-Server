@@ -82,6 +82,18 @@ const productSchema = new Schema<IProduct>(
          type: [String],
          default: [],
       },
+      views: {
+         type: Number,
+         default: 0,
+      },
+      flashSalePrice: {
+         type: Number,
+         default: null,
+      },
+      isOnFlashSale: {
+         type: Boolean,
+         default: false,
+      },
    },
    {
       timestamps: true,
@@ -89,6 +101,12 @@ const productSchema = new Schema<IProduct>(
       // toObject: { virtuals: true }
    }
 );
+
+productSchema.index({ name: 'text', description: 'text' });
+productSchema.index({ category: 1, price: 1 });
+productSchema.index({ brand: 1 });
+productSchema.index({ isOnFlashSale: 1 });
+productSchema.index({ views: -1 });
 
 // Middleware to auto-generate the slug before saving
 productSchema.pre<IProduct>('validate', function (next) {

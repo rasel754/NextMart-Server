@@ -113,6 +113,29 @@ const deleteProduct = catchAsync(async (req, res) => {
   });
 });
 
+const toggleWishlist = catchAsync(async (req, res) => {
+  const { productId } = req.params;
+  const result = await ProductService.toggleWishlist(productId, req.user as IJwtPayload);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: result.message,
+    data: result.wishlist,
+  });
+});
+
+const getWishlist = catchAsync(async (req, res) => {
+  const result = await ProductService.getWishlist(req.user as IJwtPayload);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Wishlist retrieved successfully",
+    data: result,
+  });
+});
+
 export const ProductController = {
   createProduct,
   getAllProduct,
@@ -121,4 +144,6 @@ export const ProductController = {
   updateProduct,
   deleteProduct,
   getMyShopProducts,
+  toggleWishlist,
+  getWishlist,
 };

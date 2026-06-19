@@ -4,6 +4,7 @@ import sendResponse from "../../utils/sendResponse";
 import catchAsync from "../../utils/catchAsync";
 import { StatusCodes } from "http-status-codes";
 import config from "../../config";
+import AppError from '../../errors/appError';
 
 const loginUser = catchAsync(async (req, res) => {
   const result = await AuthService.loginUser(req.body);
@@ -28,15 +29,71 @@ const loginUser = catchAsync(async (req, res) => {
 });
 
 const refreshToken = catchAsync(async (req: Request, res: Response) => {
-  const { authorization } = req.headers;
+  const token = req.headers.authorization || req.cookies.refreshToken || req.body.refreshToken;
 
-  const result = await AuthService.refreshToken(authorization as string);
+  if (!token) {
+     throw new AppError(StatusCodes.UNAUTHORIZED, "Refresh token is required");
+  }
+
+  const result = await AuthService.refreshToken(token);
+  const { refreshToken: newRefreshToken, accessToken } = result;
+
+  res.cookie("refreshToken", newRefreshToken, {
+    secure: config.NODE_ENV === "production",
+    httpOnly: true,
+    sameSite: "none",
+    maxAge: 1000 * 60 * 60 * 24 * 365,
+  });
 
   sendResponse(res, {
-    statusCode: 200,
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Token refreshed successfully!",
+    data: {
+      accessToken,
+      refreshToken: newRefreshToken
+    },
+  });
+});
+
+const googleLogin = catchAsync(async (req: Request, res: Response) => {
+  const { idToken } = req.body;
+  const clientInfo = (req as any).clientInfo;
+
+  const result = await AuthService.googleLogin({ idToken, clientInfo });
+  const { refreshToken, accessToken } = result;
+
+  res.cookie("refreshToken", refreshToken, {
+    secure: config.NODE_ENV === "production",
+    httpOnly: true,
+    sameSite: "none",
+    maxAge: 1000 * 60 * 60 * 24 * 365,
+  });
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
     success: true,
     message: "User logged in successfully!",
-    data: result,
+    data: {
+      accessToken,
+      refreshToken
+    },
+  });
+});
+
+const logoutUser = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (userId) {
+     await AuthService.logoutUser(userId);
+  }
+
+  res.clearCookie("refreshToken");
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Logged out successfully!",
+    data: null,
   });
 });
 
@@ -99,4 +156,6 @@ export const AuthController = {
   forgotPassword,
   verifyOTP,
   resetPassword,
+  googleLogin,
+  logoutUser,
 };

@@ -20,7 +20,7 @@ const userSchema = new Schema<IUser, UserModel>(
       },
       password: {
          type: String,
-         required: true,
+         required: false,
       },
       role: {
          type: String,
@@ -67,6 +67,23 @@ const userSchema = new Schema<IUser, UserModel>(
          type: String,
          default: null
       },
+      status: {
+         type: String,
+         enum: ['active', 'banned'],
+         default: 'active'
+      },
+      profilePhoto: {
+         type: String,
+         default: ''
+      },
+      refreshTokenHash: {
+         type: String,
+         default: null
+      },
+      wishlist: [{
+         type: Schema.Types.ObjectId,
+         ref: 'Product'
+      }]
    },
    {
       timestamps: true,
@@ -76,10 +93,12 @@ const userSchema = new Schema<IUser, UserModel>(
 userSchema.pre('save', async function (next) {
    const user = this;
 
-   user.password = await bcrypt.hash(
-      user.password,
-      Number(config.bcrypt_salt_rounds)
-   );
+   if (user.password) {
+      user.password = await bcrypt.hash(
+         user.password,
+         Number(config.bcrypt_salt_rounds)
+      );
+   }
 
    next();
 });
@@ -120,6 +139,9 @@ userSchema.statics.checkUserExist = async function (userId: string) {
 
    return existingUser;
 };
+
+userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ role: 1, status: 1 });
 
 const User = mongoose.model<IUser, UserModel>('User', userSchema);
 export default User;

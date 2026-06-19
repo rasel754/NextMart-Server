@@ -7,13 +7,22 @@ const router = Router();
 
 router.get(
     '/',
-    auth(UserRole.ADMIN),
     ReviewControllers.getAllReviews
 );
 router.post(
     '/',
     auth(UserRole.USER),
     ReviewControllers.createReview
+);
+router.patch(
+    '/:reviewId',
+    auth(UserRole.USER),
+    ReviewControllers.editReview
+);
+router.delete(
+    '/:reviewId',
+    auth(UserRole.ADMIN, UserRole.USER),
+    ReviewControllers.deleteReview
 );
 
 export const ReviewRoutes = router;

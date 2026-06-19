@@ -64,6 +64,11 @@ const createOrder = async (
         }
 
         orderData.coupon = coupon._id as Types.ObjectId;
+        await Coupon.findByIdAndUpdate(
+           coupon._id,
+           { $inc: { usageCount: 1 } },
+           { session }
+        );
       } else {
         throw new Error("Invalid coupon code.");
       }
@@ -107,26 +112,40 @@ const createOrder = async (
     await session.commitTransaction();
     session.endSession();
 
-    // const pdfBuffer = await generateOrderInvoicePDF(createdOrder);
-    // const emailContent = await EmailHelper.createEmailContent(
-    //   //@ts-ignore
-    //   { userName: createdOrder.user.name || "" },
-    //   "orderInvoice"
-    // );
+    try {
+      const pdfBuffer = await generateOrderInvoicePDF(createdOrder);
+      const emailContent = await EmailHelper.createEmailContent(
+        {
+          userName: (createdOrder.user as any).name || "Customer",
+          orderId: (createdOrder._id as any).toString(),
+          orderDate: new Date(createdOrder.createdAt as any).toLocaleDateString(),
+          products: createdOrder.products,
+          totalAmount: createdOrder.totalAmount,
+          discount: createdOrder.discount,
+          deliveryCharge: createdOrder.deliveryCharge,
+          finalAmount: createdOrder.finalAmount,
+          shippingAddress: createdOrder.shippingAddress
+        },
+        "orderConfirmation"
+      );
 
-    // const attachment = {
-    //   filename: `Invoice_${createdOrder._id}.pdf`,
-    //   content: pdfBuffer,
-    //   encoding: "base64", // if necessary
-    // };
+      const attachment = {
+        filename: `Invoice_${(createdOrder._id as any)}.pdf`,
+        content: pdfBuffer,
+        encoding: "base64",
+      };
 
-    // await EmailHelper.sendEmail(
-    //   //@ts-ignore
-    //   createdOrder.user.email,
-    //   emailContent,
-    //   "Order confirmed!",
-    //   attachment
-    // );
+      if (emailContent) {
+        await EmailHelper.sendEmail(
+          (createdOrder.user as any).email,
+          emailContent,
+          "Order confirmed!",
+          attachment
+        );
+      }
+    } catch (emailErr) {
+      console.error("Failed to send order confirmation email:", emailErr);
+    }
     return result;
   } catch (error) {
     console.log(error);
@@ -198,20 +217,33 @@ const getMyOrders = async (
   query: Record<string, unknown>,
   authUser: IJwtPayload
 ) => {
+  const { status, sort, ...remainingQuery } = query;
+  const filter: Record<string, any> = { user: authUser.userId };
+
+  if (status) {
+     let mappedStatus = status as string;
+     if (mappedStatus.toLowerCase() === 'delivered') mappedStatus = 'Completed';
+     mappedStatus = mappedStatus.charAt(0).toUpperCase() + mappedStatus.slice(1).toLowerCase();
+     filter.status = mappedStatus;
+  }
+
+  let sortOption = '-createdAt';
+  if (sort === 'newest') {
+     sortOption = '-createdAt';
+  } else if (sort === 'oldest') {
+     sortOption = 'createdAt';
+  }
+
   const orderQuery = new QueryBuilder(
-    Order.find({ user: authUser.userId }).populate(
-      "user products.product coupon"
-    ),
-    query
+    Order.find(filter).populate("user products.product coupon"),
+    remainingQuery
   )
-    .search(["user.name", "user.email", "products.product.name"])
-    .filter()
     .sort()
-    .paginate()
-    .fields();
+    .paginate();
+
+  orderQuery.modelQuery = orderQuery.modelQuery.sort(sortOption);
 
   const result = await orderQuery.modelQuery;
-
   const meta = await orderQuery.countTotal();
 
   return {
@@ -222,34 +254,122 @@ const getMyOrders = async (
 
 const changeOrderStatus = async (
   orderId: string,
-  status: string,
+  newStatus: string,
   authUser: IJwtPayload
 ) => {
-  const userHasShop = await User.findById(authUser.userId).select(
-    "isActive hasShop"
-  );
+  let targetStatus = newStatus;
+  if (targetStatus.toLowerCase() === 'delivered') targetStatus = 'Completed';
+  targetStatus = targetStatus.charAt(0).toUpperCase() + targetStatus.slice(1).toLowerCase();
 
-  if (!userHasShop)
-    throw new AppError(StatusCodes.NOT_FOUND, "User not found!");
-  if (!userHasShop.isActive)
-    throw new AppError(StatusCodes.BAD_REQUEST, "User account is not active!");
-  if (!userHasShop.hasShop)
-    throw new AppError(StatusCodes.BAD_REQUEST, "User does not have any shop!");
+  if (!['Pending', 'Processing', 'Completed', 'Cancelled'].includes(targetStatus)) {
+     throw new AppError(StatusCodes.BAD_REQUEST, `Invalid status value: ${newStatus}`);
+  }
 
-  const shopIsActive = await Shop.findOne({
-    user: userHasShop._id,
-    isActive: true,
-  }).select("isActive");
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (!shopIsActive)
-    throw new AppError(StatusCodes.BAD_REQUEST, "Shop is not active!");
+  try {
+     const order = await Order.findById(orderId).session(session);
+     if (!order) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Order not found');
+     }
 
-  const order = await Order.findOneAndUpdate(
-    { _id: new Types.ObjectId(orderId), shop: shopIsActive._id },
-    { status },
-    { new: true }
-  );
-  return order;
+     const currentStatus = order.status;
+
+     if (currentStatus !== targetStatus) {
+        let isValidTransition = false;
+        if (currentStatus === 'Pending') {
+           isValidTransition = (targetStatus === 'Processing' || targetStatus === 'Cancelled');
+        } else if (currentStatus === 'Processing') {
+           isValidTransition = (targetStatus === 'Completed');
+        }
+
+        if (!isValidTransition) {
+           throw new AppError(StatusCodes.BAD_REQUEST, `Invalid status transition from ${currentStatus} to ${targetStatus}`);
+        }
+     }
+
+     order.status = targetStatus as 'Pending' | 'Processing' | 'Completed' | 'Cancelled';
+
+     if (targetStatus === 'Cancelled' && currentStatus !== 'Cancelled') {
+        for (const item of order.products) {
+           await Product.findByIdAndUpdate(
+              item.product,
+              { $inc: { stock: item.quantity } },
+              { session }
+           );
+        }
+     }
+
+     const updatedOrder = await order.save({ session });
+     await updatedOrder.populate('user products.product');
+
+     await session.commitTransaction();
+     session.endSession();
+
+      if (targetStatus === 'Completed' && currentStatus !== 'Completed') {
+         try {
+            const emailContent = await EmailHelper.createEmailContent(
+               {
+                  userName: (updatedOrder.user as any).name || 'Customer',
+                  orderId: (updatedOrder._id as any).toString(),
+                  totalAmount: updatedOrder.finalAmount
+               },
+              'orderDelivered'
+           );
+           await EmailHelper.sendEmail(
+              (updatedOrder.user as any).email,
+              emailContent,
+              'Your order has been delivered!'
+           );
+        } catch (emailError) {
+           console.error('Failed to send delivery email:', emailError);
+        }
+     }
+
+     return updatedOrder;
+  } catch (error) {
+     await session.abortTransaction();
+     session.endSession();
+     throw error;
+  }
+};
+
+const getAllOrders = async (query: Record<string, unknown>) => {
+   const { status, search, page, limit } = query;
+   const filter: Record<string, any> = {};
+
+   if (status) {
+      let mappedStatus = status as string;
+      if (mappedStatus.toLowerCase() === 'delivered') mappedStatus = 'Completed';
+      mappedStatus = mappedStatus.charAt(0).toUpperCase() + mappedStatus.slice(1).toLowerCase();
+      filter.status = mappedStatus;
+   }
+
+   if (search) {
+      if (mongoose.Types.ObjectId.isValid(search as string)) {
+         filter._id = new mongoose.Types.ObjectId(search as string);
+      } else {
+         const matchingUsers = await User.find({ email: { $regex: search as string, $options: 'i' } }).select('_id');
+         const userIds = matchingUsers.map(u => u._id);
+         filter.user = { $in: userIds };
+      }
+   }
+
+   const orderQuery = new QueryBuilder(
+      Order.find(filter).populate('user products.product coupon'),
+      query
+   )
+      .sort()
+      .paginate();
+
+   const result = await orderQuery.modelQuery;
+   const meta = await orderQuery.countTotal();
+
+   return {
+      meta,
+      result
+   };
 };
 
 export const OrderService = {
@@ -258,4 +378,5 @@ export const OrderService = {
   getOrderDetails,
   getMyOrders,
   changeOrderStatus,
+  getAllOrders,
 };

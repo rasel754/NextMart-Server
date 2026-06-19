@@ -25,5 +25,7 @@ router.post(
 router.post('/forgot-password', AuthController.forgotPassword);
 router.post('/verify-otp', AuthController.verifyOTP);
 router.post('/reset-password', AuthController.resetPassword);
+router.post('/google', clientInfoParser, AuthController.googleLogin);
+router.post('/logout', auth(UserRole.ADMIN, UserRole.USER), AuthController.logoutUser);
 
 export const AuthRoutes = router;

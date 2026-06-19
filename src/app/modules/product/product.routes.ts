@@ -19,13 +19,25 @@ router.get(
    ProductController.getMyShopProducts
 );
 
+router.get(
+   '/wishlist',
+   auth(UserRole.USER),
+   ProductController.getWishlist
+);
+
+router.post(
+   '/:productId/wishlist',
+   auth(UserRole.USER),
+   ProductController.toggleWishlist
+);
+
 router.get('/:productId', ProductController.getSingleProduct);
 
 
 router.post(
    '/',
    auth(UserRole.USER),
-   multerUpload.fields([{ name: 'images' }]),
+   multerUpload.fields([{ name: 'images', maxCount: 5 }]),
    parseBody,
    validateRequest(productValidation.createProductValidationSchema),
    ProductController.createProduct
@@ -34,7 +46,7 @@ router.post(
 router.patch(
    '/:productId',
    auth(UserRole.USER),
-   multerUpload.fields([{ name: 'images' }]),
+   multerUpload.fields([{ name: 'images', maxCount: 5 }]),
    parseBody,
    ProductController.updateProduct
 );

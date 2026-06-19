@@ -19,6 +19,18 @@ const flashSaleSchema = new Schema<IFlashSale>(
       ref: "User",
       required: [true, "User ID is required"]
     },
+    startTime: {
+      type: Date,
+      required: [true, "Start time is required"],
+    },
+    endTime: {
+      type: Date,
+      required: [true, "End time is required"],
+    },
+    isActive: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

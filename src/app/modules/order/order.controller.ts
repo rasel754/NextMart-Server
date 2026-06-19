@@ -71,8 +71,20 @@ const changeOrderStatus = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: "Order status changed succesfully",
+    message: "Order status changed successfully",
     data: result,
+  });
+});
+
+const getAllOrders = catchAsync(async (req: Request, res: Response) => {
+  const result = await OrderService.getAllOrders(req.query);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Orders retrieved successfully",
+    meta: result.meta,
+    data: result.result,
   });
 });
 
@@ -82,4 +94,5 @@ export const OrderController = {
   getOrderDetails,
   getMyOrders,
   changeOrderStatus,
+  getAllOrders,
 };

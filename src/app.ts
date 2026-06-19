@@ -3,16 +3,77 @@ import express, { Application, NextFunction, Request, Response } from "express";
 import cookieParser from "cookie-parser";
 import os from "os";
 import { StatusCodes } from "http-status-codes";
+import helmet from 'helmet';
+import mongoSanitize from 'express-mongo-sanitize';
+import rateLimit from 'express-rate-limit';
 import router from "./app/routes";
 import globalErrorHandler from "./app/middleware/globalErrorHandler";
 import notFound from "./app/middleware/notFound";
-// import seedAdmin from './app/DB/seed';
-// import { sslService } from './app/modules/sslcommerz/sslcommerz.service';
+import requestIdMiddleware from './app/middleware/requestId';
+import AppError from './app/errors/appError';
 
 const app: Application = express();
 
-// Middleware setup
-app.use(cors({ origin: "https://next-mart-client-sable.vercel.app" }));
+// Request ID middleware first
+app.use(requestIdMiddleware);
+
+// Global Security headers
+app.use(helmet());
+
+// Tighten CORS
+const allowedOrigins = [
+  "https://next-mart-client-sable.vercel.app",
+  "http://localhost:3000"
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new AppError(StatusCodes.FORBIDDEN, "Not allowed by CORS"));
+    }
+  },
+  credentials: true
+}));
+
+// Input sanitization against NoSQL injection
+app.use(mongoSanitize());
+
+// Rate Limiting
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: {
+    success: false,
+    statusCode: StatusCodes.TOO_MANY_REQUESTS,
+    message: 'Too many requests from this IP, please try again after 15 minutes.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: {
+    success: false,
+    statusCode: StatusCodes.TOO_MANY_REQUESTS,
+    message: 'Too many attempts from this IP, please try again after 15 minutes.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use(globalLimiter);
+app.use('/api/v1/auth/login', authLimiter);
+app.use('/api/v1/user', (req: Request, res: Response, next: NextFunction) => {
+  if (req.method === 'POST') {
+    return authLimiter(req, res, next);
+  }
+  next();
+});
+
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

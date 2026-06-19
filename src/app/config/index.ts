@@ -35,4 +35,7 @@ export default {
       failed_url: process.env.FAILED_URL,
       cancel_url: process.env.CANCEL_URL,
    },
+   google_client_id: process.env.GOOGLE_CLIENT_ID,
+   client_url: process.env.CLIENT_URL,
+   log_level: process.env.LOG_LEVEL || 'info',
 };

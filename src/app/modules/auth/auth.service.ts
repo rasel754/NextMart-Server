@@ -11,6 +11,13 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { generateOtp } from '../../utils/generateOtp';
 import { EmailHelper } from '../../utils/emailHelper';
+import { OAuth2Client } from 'google-auth-library';
+import crypto from 'crypto';
+import Customer from '../customer/customer.model';
+import { UserRole } from '../user/user.interface';
+
+const client = new OAuth2Client(config.google_client_id);
+const hashToken = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
 
 const loginUser = async (payload: IAuth) => {
    const session = await mongoose.startSession();
@@ -29,7 +36,7 @@ const loginUser = async (payload: IAuth) => {
          throw new AppError(StatusCodes.FORBIDDEN, 'This user is not active!');
       }
 
-      if (!(await User.isPasswordMatched(payload?.password, user?.password))) {
+      if (!(await User.isPasswordMatched(payload?.password || '', user?.password || ''))) {
          throw new AppError(StatusCodes.FORBIDDEN, 'Password does not match');
       }
 
@@ -56,7 +63,11 @@ const loginUser = async (payload: IAuth) => {
 
       const updateUserInfo = await User.findByIdAndUpdate(
          user._id,
-         { clientInfo: payload.clientInfo, lastLogin: Date.now() },
+         {
+            clientInfo: payload.clientInfo,
+            lastLogin: Date.now(),
+            refreshTokenHash: hashToken(refreshToken)
+         },
          { new: true, session }
       );
 
@@ -75,7 +86,6 @@ const loginUser = async (payload: IAuth) => {
 };
 
 const refreshToken = async (token: string) => {
-
    let verifiedToken = null;
    try {
       verifiedToken = verifyToken(
@@ -93,10 +103,14 @@ const refreshToken = async (token: string) => {
       throw new AppError(StatusCodes.NOT_FOUND, 'User does not exist');
    }
 
-   if (!isUserExist.isActive) {
-      throw new AppError(StatusCodes.BAD_REQUEST, 'User is not active');
+   if (!isUserExist.isActive || isUserExist.status === 'banned') {
+      throw new AppError(StatusCodes.BAD_REQUEST, 'User is not active or is banned');
    }
 
+   const hashedOldToken = hashToken(token);
+   if (isUserExist.refreshTokenHash !== hashedOldToken) {
+      throw new AppError(StatusCodes.FORBIDDEN, 'Refresh Token has been invalidated or rotated');
+   }
 
    const jwtPayload: IJwtPayload = {
       userId: isUserExist._id as string,
@@ -113,8 +127,19 @@ const refreshToken = async (token: string) => {
       config.jwt_access_expires_in as string
    );
 
+   const newRefreshToken = createToken(
+      jwtPayload,
+      config.jwt_refresh_secret as Secret,
+      config.jwt_refresh_expires_in as string
+   );
+
+   await User.findByIdAndUpdate(isUserExist._id, {
+      refreshTokenHash: hashToken(newRefreshToken)
+   });
+
    return {
       accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
    };
 };
 
@@ -131,6 +156,10 @@ const changePassword = async (
    }
    if (!user.isActive) {
       throw new AppError(StatusCodes.FORBIDDEN, 'User account is inactive');
+   }
+
+   if (!user.password) {
+      throw new AppError(StatusCodes.BAD_REQUEST, 'This account does not have a password set. Please log in using Google.');
    }
 
    // Validate old password
@@ -224,7 +253,7 @@ const verifyOTP = async (
    await user.save();
 
    const resetToken = jwt.sign({ email }, config.jwt_pass_reset_secret as string, {
-      expiresIn: config.jwt_pass_reset_expires_in,
+      expiresIn: config.jwt_pass_reset_expires_in as any,
    });
 
    // Return the reset token
@@ -280,6 +309,101 @@ const resetPassword = async ({
    }
 };
 
+const googleLogin = async (payload: { idToken: string; clientInfo: any }) => {
+   const { idToken, clientInfo } = payload;
+   
+   let googlePayload;
+   try {
+      const ticket = await client.verifyIdToken({
+         idToken,
+         audience: config.google_client_id,
+      });
+      googlePayload = ticket.getPayload();
+   } catch (error) {
+      throw new AppError(StatusCodes.UNAUTHORIZED, 'Invalid Google ID token');
+   }
+
+   if (!googlePayload || !googlePayload.email) {
+      throw new AppError(StatusCodes.BAD_REQUEST, 'Email is required from Google profile');
+   }
+
+   const email = googlePayload.email;
+   const name = googlePayload.name || 'Google User';
+   const picture = googlePayload.picture || '';
+
+   let user = await User.findOne({ email });
+   if (!user) {
+      user = await User.create({
+         name,
+         email,
+         role: UserRole.USER,
+         isActive: true,
+         status: 'active',
+         profilePhoto: picture,
+         clientInfo: clientInfo || {
+            device: 'pc',
+            browser: 'Google Sign-In',
+            ipAddress: '127.0.0.1',
+            userAgent: 'Google Auth'
+         }
+      });
+      
+      await Customer.create({
+         user: user._id,
+      });
+   } else {
+      if (!user.isActive) {
+         throw new AppError(StatusCodes.FORBIDDEN, 'User account is inactive');
+      }
+      if (user.status === 'banned') {
+         throw new AppError(StatusCodes.FORBIDDEN, 'User account is banned');
+      }
+   }
+
+   const jwtPayload: IJwtPayload = {
+      userId: user._id as string,
+      name: user.name as string,
+      email: user.email as string,
+      hasShop: user.hasShop,
+      isActive: user.isActive,
+      role: user.role,
+   };
+
+   const accessToken = createToken(
+      jwtPayload,
+      config.jwt_access_secret as string,
+      config.jwt_access_expires_in as string
+   );
+
+   const refreshToken = createToken(
+      jwtPayload,
+      config.jwt_refresh_secret as string,
+      config.jwt_refresh_expires_in as string
+   );
+
+   await User.findByIdAndUpdate(user._id, {
+      lastLogin: Date.now(),
+      refreshTokenHash: hashToken(refreshToken),
+      ...(clientInfo ? { clientInfo } : {})
+   });
+
+   return {
+      accessToken,
+      refreshToken
+   };
+};
+
+const logoutUser = async (userId: string) => {
+   const user = await User.findById(userId);
+   if (!user) {
+      throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
+   }
+
+   user.refreshTokenHash = null;
+   await user.save();
+   return { message: 'Logged out successfully' };
+};
+
 export const AuthService = {
    loginUser,
    refreshToken,
@@ -287,4 +411,6 @@ export const AuthService = {
    forgotPassword,
    verifyOTP,
    resetPassword,
+   googleLogin,
+   logoutUser,
 };

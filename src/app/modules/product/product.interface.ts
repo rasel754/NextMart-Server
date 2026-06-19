@@ -18,6 +18,9 @@ export interface IProduct extends Document {
   availableColors: string[];
   specification: Record<string, any>;
   keyFeatures: string[];
+  views: number;
+  flashSalePrice?: number | null;
+  isOnFlashSale?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
   reviews?: Record<string, any> | [];

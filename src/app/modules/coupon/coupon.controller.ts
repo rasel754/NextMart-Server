@@ -65,10 +65,23 @@ const deleteCoupon = catchAsync(async (req: Request, res: Response) => {
    });
 });
 
+const validateCoupon = catchAsync(async (req: Request, res: Response) => {
+   const { code, orderAmount } = req.body;
+   const result = await CouponService.validateCoupon(code, Number(orderAmount), req.user as IJwtPayload);
+
+   sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: 'Coupon is valid.',
+      data: result,
+   });
+});
+
 export const couponController = {
    createCoupon,
    getAllCoupon,
    updateCoupon,
    getCouponByCode,
    deleteCoupon,
+   validateCoupon,
 };

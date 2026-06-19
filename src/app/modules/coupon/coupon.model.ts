@@ -51,11 +51,41 @@ const couponSchema = new Schema<ICoupon>(
          type: Boolean,
          default: false,
       },
+      usageLimit: {
+         type: Number,
+         default: null,
+      },
+      usageCount: {
+         type: Number,
+         default: 0,
+      },
+      perUserLimit: {
+         type: Number,
+         default: 1,
+      },
+      minimumOrderAmount: {
+         type: Number,
+         default: 0,
+      },
+      expiresAt: {
+         type: Date,
+         required: true,
+      },
    },
    {
       timestamps: true,
    }
 );
+
+couponSchema.pre('validate', function (next) {
+   if (this.minOrderAmount !== undefined && (this.minimumOrderAmount === undefined || this.minimumOrderAmount === 0)) {
+      this.minimumOrderAmount = this.minOrderAmount;
+   }
+   if (this.endDate && !this.expiresAt) {
+      this.expiresAt = this.endDate;
+   }
+   next();
+});
 
 couponSchema.pre('find', function (next) {
    this.find({ isDeleted: { $ne: true } });

@@ -2,6 +2,8 @@ import { Server } from 'http';
 import mongoose from 'mongoose';
 import app from './app';
 import config from './app/config';
+import seedAdminAndData from './app/DB/seed';
+import { startCronJobs } from './app/utils/cronJobs';
 
 let server: Server | null = null;
 
@@ -33,7 +35,14 @@ function gracefulShutdown(signal: string) {
 async function bootstrap() {
    try {
       await connectToDatabase();
-      //await seed();
+      
+      // Auto-run seed script in development
+      if (config.NODE_ENV === 'development') {
+         await seedAdminAndData();
+      }
+
+      // Initialize background cron jobs
+      startCronJobs();
 
       server = app.listen(config.port, () => {
          console.log(`🚀 Application is running on port ${config.port}`);

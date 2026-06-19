@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Welcome to NextMart!</title>
+   <style>
+      body {
+         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+         background-color: #f7f9fc;
+         margin: 0;
+         padding: 0;
+         color: #333333;
+      }
+      .email-wrapper {
+         max-width: 600px;
+         margin: 20px auto;
+         background-color: #ffffff;
+         border-radius: 8px;
+         overflow: hidden;
+         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+         border: 1px solid #e1e8ed;
+      }
+      .header {
+         background: linear-gradient(135deg, #003366, #0055a5);
+         padding: 30px;
+         text-align: center;
+         color: #ffffff;
+      }
+      .logo {
+         max-height: 50px;
+         margin-bottom: 10px;
+      }
+      .content {
+         padding: 40px 30px;
+         line-height: 1.6;
+      }
+      .content h1 {
+         color: #003366;
+         font-size: 24px;
+         margin-top: 0;
+      }
+      .cta-button {
+         display: inline-block;
+         background-color: #007bff;
+         color: #ffffff !important;
+         text-decoration: none;
+         padding: 12px 30px;
+         font-size: 16px;
+         font-weight: bold;
+         border-radius: 4px;
+         margin: 25px 0;
+         text-align: center;
+      }
+      .footer {
+         background-color: #f1f4f8;
+         padding: 20px 30px;
+         text-align: center;
+         font-size: 12px;
+         color: #777777;
+         border-top: 1px solid #e1e8ed;
+      }
+      .footer a {
+         color: #007bff;
+         text-decoration: none;
+      }
+   </style>
+</head>
+<body>
+   <div class="email-wrapper">
+      <div class="header">
+         <img class="logo" src="https://res.cloudinary.com/dbgrq28js/image/upload/v1736763971/logoipsum-282_ilqjfb_paw4if.png" alt="NextMart Logo" />
+         <h2>Welcome to NextMart!</h2>
+      </div>
+      <div class="content">
+         <h1>Hello {{userName}},</h1>
+         <p>We're absolutely thrilled to have you join our NextMart community! You are now part of a fast-growing, premium shopping platform designed to bring you the best deals and seamless shopping experiences.</p>
+         <p>Whether you're looking for high-end electronics, modern fashion, kitchen essentials, or unique gifts, we've got you covered.</p>
+         <div style="text-align: center;">
+            <a href="https://next-mart-client-sable.vercel.app" class="cta-button">Browse Premium Products</a>
+         </div>
+         <p>If you have any questions or need support getting started, our customer success team is here for you 24/7. Just reply to this email!</p>
+         <p>Happy Shopping!</p>
+         <p>Best regards,<br><strong>The NextMart Team</strong></p>
+      </div>
+      <div class="footer">
+         <p>© 2026 NextMart Ltd. Level-4, 34, Awal Centre, Banani, Dhaka.</p>
+         <p>You received this email because you registered on our store. If you wish to unsubscribe, please click <a href="#">here</a>.</p>
+      </div>
+   </div>
+</body>
+</html>

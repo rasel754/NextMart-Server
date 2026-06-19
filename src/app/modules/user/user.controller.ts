@@ -72,13 +72,27 @@ const updateProfile = catchAsync(async (req, res) => {
 });
 
 const updateUserStatus = catchAsync(async (req, res) => {
-   const userId = req.params.id;
-   const result = await UserServices.updateUserStatus(userId);
+   const userId = req.params.userId;
+   const { status } = req.body;
+   const result = await UserServices.updateUserStatus(userId, status);
 
    sendResponse(res, {
       statusCode: StatusCodes.OK,
       success: true,
-      message: `User is now ${result.isActive ? 'active' : 'inactive'}`,
+      message: `User status updated to ${result.status}`,
+      data: result,
+   });
+});
+
+const updateUserRole = catchAsync(async (req, res) => {
+   const userId = req.params.userId;
+   const { role } = req.body;
+   const result = await UserServices.updateUserRole(userId, role);
+
+   sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: `User role updated to ${result.role}`,
       data: result,
    });
 });
@@ -88,5 +102,6 @@ export const UserController = {
    getAllUser,
    myProfile,
    updateUserStatus,
+   updateUserRole,
    updateProfile,
 };

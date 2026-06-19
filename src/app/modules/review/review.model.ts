@@ -1,5 +1,5 @@
-import { ObjectId, Schema, model } from 'mongoose';
-import { IReview } from './review.interface'; // Assuming you have a file for the interface
+import { Schema, model } from 'mongoose';
+import { IReview } from './review.interface';
 import { Product } from '../product/product.model';
 
 const reviewSchema = new Schema<IReview>(
@@ -42,5 +42,43 @@ const reviewSchema = new Schema<IReview>(
       timestamps: true,
    }
 );
+
+// Indexes
+reviewSchema.index({ product: 1, user: 1 }, { unique: true });
+reviewSchema.index({ product: 1, createdAt: -1 });
+
+// Static method to calculate average rating and rating count
+reviewSchema.statics.calculateAverageRating = async function (productId: Schema.Types.ObjectId) {
+   const stats = await this.aggregate([
+      {
+         $match: { product: productId }
+      },
+      {
+         $group: {
+            _id: '$product',
+            ratingCount: { $sum: 1 },
+            averageRating: { $avg: '$rating' }
+         }
+      }
+   ]);
+
+   if (stats.length > 0) {
+      await Product.findByIdAndUpdate(productId, {
+         averageRating: Math.round(stats[0].averageRating * 10) / 10,
+         ratingCount: stats[0].ratingCount
+      });
+   } else {
+      await Product.findByIdAndUpdate(productId, {
+         averageRating: 0,
+         ratingCount: 0
+      });
+   }
+};
+
+// Post-save hook to calculate average rating
+reviewSchema.post('save', async function () {
+   const ReviewModel = this.constructor as any;
+   await ReviewModel.calculateAverageRating(this.product);
+});
 
 export const Review = model<IReview>('Review', reviewSchema);

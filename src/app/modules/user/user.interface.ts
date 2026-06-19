@@ -1,4 +1,4 @@
-import { Document, Model } from 'mongoose';
+import { Document, Model, Types } from 'mongoose';
 
 // Enum for User Roles
 export enum UserRole {
@@ -9,7 +9,7 @@ export enum UserRole {
 // User Schema Definition
 export interface IUser extends Document {
    email: string;
-   password: string;
+   password?: string; // made optional for Google Sign-In users
    name: string;
    role: UserRole;
    hasShop: boolean;
@@ -24,6 +24,10 @@ export interface IUser extends Document {
    lastLogin: Date;
    isActive: boolean;
    otpToken?: string | null;
+   status: 'active' | 'banned';
+   profilePhoto: string;
+   refreshTokenHash: string | null;
+   wishlist: Types.ObjectId[];
    createdAt: Date;
    updatedAt: Date;
 }

@@ -6,6 +6,7 @@ import User from '../user/user.model';
 import { IProduct } from './product.interface';
 import { Category } from '../category/category.model';
 import { Product } from './product.model';
+import { Brand } from '../brand/brand.model';
 import QueryBuilder from '../../builder/QueryBuilder';
 import { ProductSearchableFields } from './product.constant';
 import { Order } from '../order/order.model';
@@ -15,6 +16,7 @@ import { Review } from '../review/review.model';
 import { FlashSale } from '../flashSell/flashSale.model';
 import { off } from 'process';
 import { hasActiveShop } from '../../utils/hasActiveShop';
+import mongoose from 'mongoose';
 
 const createProduct = async (
    productData: Partial<IProduct>,
@@ -106,99 +108,133 @@ const createProduct = async (
 
 const getAllProduct = async (query: Record<string, unknown>) => {
    const {
+      search,
+      category,
+      brand,
       minPrice,
       maxPrice,
-      categories,
-      brands,
+      rating,
       inStock,
-      ratings,
+      flashSale,
+      sort,
+      page,
+      limit,
       ...pQuery
    } = query;
 
    // Build the filter object
    const filter: Record<string, any> = {};
 
-   // Filter by categories
-   if (categories) {
-      const categoryArray = typeof categories === 'string'
-         ? categories.split(',')
-         : Array.isArray(categories)
-            ? categories
-            : [categories];
-      filter.category = { $in: categoryArray };
+   // 1. Search Filter: partial match on title (name) & description
+   if (search) {
+      filter.$or = [
+         { name: { $regex: search as string, $options: 'i' } },
+         { description: { $regex: search as string, $options: 'i' } }
+      ];
    }
 
-
-   // Filter by brands
-   if (brands) {
-      const brandArray = typeof brands === 'string'
-         ? brands.split(',')
-         : Array.isArray(brands)
-            ? brands
-            : [brands]
-      filter.brand = { $in: brandArray };
-   }
-
-   // Filter by in stock/out of stock
-   if (inStock !== undefined) {
-      filter.stock = inStock === 'true' ? { $gt: 0 } : 0;
-   }
-
-   // Filter by ratings
-   if (ratings) {
-      const ratingArray = typeof ratings === 'string'
-         ? ratings.split(',')
-         : Array.isArray(ratings) ? ratings : [ratings];
-      filter.averageRating = { $in: ratingArray.map(Number) };
-   }
-
-   const productQuery = new QueryBuilder(
-      Product.find(filter)
-         .populate('category', 'name')
-         .populate('shop', 'shopName')
-         .populate('brand', 'name'),
-      pQuery
-   )
-      .search(['name', 'description'])
-      .filter()
-      .sort()
-      .paginate()
-      .fields()
-      .priceRange(Number(minPrice) || 0, Number(maxPrice) || Infinity);
-
-   const products = await productQuery.modelQuery.lean();
-
-   const meta = await productQuery.countTotal();
-
-   // Get Flash Sale Discounts
-   const productIds = products.map((product: any) => product._id);
-
-   const flashSales = await FlashSale.find({
-      product: { $in: productIds },
-      discountPercentage: { $gt: 0 },
-   }).select('product discountPercentage');
-
-   const flashSaleMap = flashSales.reduce((acc, { product, discountPercentage }) => {
-      //@ts-ignore
-      acc[product.toString()] = discountPercentage;
-      return acc;
-   }, {});
-
-   // Add offer price to products
-   const updatedProducts = products.map((product: any) => {
-      //@ts-ignore
-      const discountPercentage = flashSaleMap[product._id.toString()];
-      if (discountPercentage) {
-         product.offerPrice = product.price * (1 - discountPercentage / 100);
+   // 2. Category Filter: Category ID or slug
+   if (category) {
+      if (mongoose.Types.ObjectId.isValid(category as string)) {
+         filter.category = new mongoose.Types.ObjectId(category as string);
       } else {
-         product.offerPrice = null;
+         const foundCategory = await Category.findOne({ slug: category as string });
+         if (foundCategory) {
+            filter.category = foundCategory._id;
+         } else {
+            filter.category = new mongoose.Types.ObjectId();
+         }
       }
-      return product;
-   });
+   }
+
+   // 3. Brand Filter: Brand ID or slug
+   if (brand) {
+      if (mongoose.Types.ObjectId.isValid(brand as string)) {
+         filter.brand = new mongoose.Types.ObjectId(brand as string);
+      } else {
+         const foundBrand = await Brand.findOne({
+            $or: [
+               { name: brand as string },
+               { name: { $regex: new RegExp(`^${(brand as string).replace(/-/g, ' ')}$`, 'i') } }
+            ]
+         });
+         if (foundBrand) {
+            filter.brand = foundBrand._id;
+         } else {
+            filter.brand = new mongoose.Types.ObjectId();
+         }
+      }
+   }
+
+   // 4. Price range filter
+   if (minPrice !== undefined || maxPrice !== undefined) {
+      filter.price = {};
+      if (minPrice !== undefined) {
+         filter.price.$gte = Number(minPrice);
+      }
+      if (maxPrice !== undefined) {
+         filter.price.$lte = Number(maxPrice);
+      }
+   }
+
+   // 5. Rating filter
+   if (rating) {
+      filter.averageRating = { $gte: Number(rating) };
+   }
+
+   // 6. Stock filter
+   if (inStock !== undefined) {
+      if (inStock === 'true') {
+         filter.stock = { $gt: 0 };
+      } else if (inStock === 'false') {
+         filter.stock = 0;
+      }
+   }
+
+   // 7. Flash sale filter
+   if (flashSale === 'true') {
+      filter.isOnFlashSale = true;
+   }
+
+   // Sorting
+   let sortOption = '-createdAt';
+   if (sort) {
+      if (sort === 'price_asc') {
+         sortOption = 'price';
+      } else if (sort === 'price_desc') {
+         sortOption = '-price';
+      } else if (sort === 'newest') {
+         sortOption = '-createdAt';
+      } else if (sort === 'popular') {
+         sortOption = '-views';
+      }
+   }
+
+   // Pagination
+   const pageNumber = Number(page) || 1;
+   const limitNumber = Math.min(Number(limit) || 10, 50);
+   const skip = (pageNumber - 1) * limitNumber;
+
+   const products = await Product.find(filter)
+      .populate('category', 'name')
+      .populate('shop', 'shopName')
+      .populate('brand', 'name')
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limitNumber)
+      .lean();
+
+   const total = await Product.countDocuments(filter);
+   const totalPage = Math.ceil(total / limitNumber);
 
    return {
-      meta,
-      result: updatedProducts,
+      meta: {
+         page: pageNumber,
+         limit: limitNumber,
+         total,
+         totalPage
+      },
+      result: products,
    };
 };
 
@@ -256,6 +292,9 @@ const getTrendingProducts = async (limit: number) => {
 };
 
 const getSingleProduct = async (productId: string) => {
+   // Atomically increment views (do not await - fire and forget)
+   Product.findByIdAndUpdate(productId, { $inc: { views: 1 } }).exec();
+
    const product = await Product.findById(productId)
       .populate("shop brand category");
 
@@ -277,6 +316,46 @@ const getSingleProduct = async (productId: string) => {
       offerPrice,
       reviews
    };
+};
+
+const toggleWishlist = async (productId: string, authUser: IJwtPayload) => {
+   const user = await User.findById(authUser.userId);
+   if (!user) {
+      throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
+   }
+
+   const productExists = await Product.findById(productId);
+   if (!productExists) {
+      throw new AppError(StatusCodes.NOT_FOUND, 'Product not found');
+   }
+
+   const index = user.wishlist.indexOf(productExists._id as any);
+   let message = '';
+   if (index > -1) {
+      user.wishlist.splice(index, 1);
+      message = 'Product removed from wishlist';
+   } else {
+      user.wishlist.push(productExists._id as any);
+      message = 'Product added to wishlist';
+   }
+
+   await user.save();
+   return {
+      message,
+      wishlist: user.wishlist
+   };
+};
+
+const getWishlist = async (authUser: IJwtPayload) => {
+   const user = await User.findById(authUser.userId).populate({
+      path: 'wishlist',
+      populate: { path: 'category brand shop' }
+   });
+   if (!user) {
+      throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
+   }
+
+   return user.wishlist;
 };
 
 
@@ -396,5 +475,7 @@ export const ProductService = {
    getSingleProduct,
    updateProduct,
    deleteProduct,
-   getMyShopProducts
+   getMyShopProducts,
+   toggleWishlist,
+   getWishlist,
 };

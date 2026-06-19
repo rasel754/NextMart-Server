@@ -10,6 +10,7 @@ import { IImageFile } from '../../interface/IImageFile';
 import { AuthService } from '../auth/auth.service';
 import { ICustomer } from '../customer/customer.interface';
 import { IJwtPayload } from '../auth/auth.interface';
+import { EmailHelper } from '../../utils/emailHelper';
 
 // Function to register user
 const registerUser = async (userData: IUser) => {
@@ -40,7 +41,19 @@ const registerUser = async (userData: IUser) => {
 
       await session.commitTransaction();
 
-      return await AuthService.loginUser({ email: createdUser.email, password: userData.password, clientInfo: userData.clientInfo });
+      try {
+         const emailContent = await EmailHelper.createEmailContent(
+            { userName: createdUser.name },
+            'welcome'
+         );
+         if (emailContent) {
+            await EmailHelper.sendEmail(createdUser.email, emailContent, "Welcome to NextMart!");
+         }
+      } catch (emailErr) {
+         console.error('Failed to send welcome email:', emailErr);
+      }
+
+      return await AuthService.loginUser({ email: createdUser.email, password: userData.password as string, clientInfo: userData.clientInfo });
    } catch (error) {
       if (session.inTransaction()) {
          await session.abortTransaction();
@@ -51,18 +64,24 @@ const registerUser = async (userData: IUser) => {
    }
 };
 
-
-
 const getAllUser = async (query: Record<string, unknown>) => {
-   const UserQuery = new QueryBuilder(User.find(), query)
+   if (query.search) {
+      query.searchTerm = query.search;
+   }
+
+   const userQuery = new QueryBuilder(
+      User.find(),
+      query
+   )
       .search(UserSearchableFields)
       .filter()
       .sort()
-      .paginate()
-      .fields();
+      .paginate();
 
-   const result = await UserQuery.modelQuery;
-   const meta = await UserQuery.countTotal();
+   userQuery.modelQuery = userQuery.modelQuery.select('_id name email role status createdAt profilePhoto') as any;
+
+   const result = await userQuery.modelQuery;
+   const meta = await userQuery.countTotal();
    return {
       result,
       meta,
@@ -80,12 +99,10 @@ const myProfile = async (authUser: IJwtPayload) => {
 
    const profile = await Customer.findOne({ user: isUserExists._id });
 
-
    return {
       ...isUserExists.toObject(),
       profile: profile || null
    }
-
 }
 
 const updateProfile = async (
@@ -117,15 +134,27 @@ const updateProfile = async (
    return result;
 };
 
-const updateUserStatus = async (userId: string) => {
+const updateUserStatus = async (userId: string, status: 'active' | 'banned') => {
    const user = await User.findById(userId);
 
-   console.log('comes here');
    if (!user) {
       throw new AppError(StatusCodes.NOT_FOUND, 'User is not found');
    }
 
-   user.isActive = !user.isActive;
+   user.status = status;
+   user.isActive = (status === 'active');
+   const updatedUser = await user.save();
+   return updatedUser;
+};
+
+const updateUserRole = async (userId: string, role: UserRole) => {
+   const user = await User.findById(userId);
+
+   if (!user) {
+      throw new AppError(StatusCodes.NOT_FOUND, 'User is not found');
+   }
+
+   user.role = role;
    const updatedUser = await user.save();
    return updatedUser;
 };
@@ -135,5 +164,6 @@ export const UserServices = {
    getAllUser,
    myProfile,
    updateUserStatus,
+   updateUserRole,
    updateProfile,
 };

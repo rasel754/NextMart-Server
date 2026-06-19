@@ -11,4 +11,9 @@ export interface ICoupon extends Document {
    minOrderAmount: number;
    isActive: boolean;
    isDeleted: boolean;
+   usageLimit?: number | null;
+   usageCount: number;
+   perUserLimit: number;
+   minimumOrderAmount: number;
+   expiresAt: Date;
 }

@@ -12,6 +12,8 @@ router.post('/', auth(UserRole.USER), couponController.createCoupon);
 
 router.get('/', auth(UserRole.ADMIN), couponController.getAllCoupon);
 
+router.post('/validate', auth(UserRole.USER, UserRole.ADMIN), couponController.validateCoupon);
+
 router.patch(
    '/:couponCode/update-coupon',
    validateRequest(updateCouponValidationSchema),

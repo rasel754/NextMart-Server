@@ -19,8 +19,14 @@ router.get(
 );
 
 router.get(
+    '/',
+    auth(UserRole.ADMIN),
+    OrderController.getAllOrders
+);
+
+router.get(
     '/:orderId',
-    auth(UserRole.USER),
+    auth(UserRole.USER, UserRole.ADMIN),
     OrderController.getOrderDetails
 );
 
@@ -32,7 +38,7 @@ router.post(
 
 router.patch(
     '/:orderId/status',
-    auth(UserRole.USER),
+    auth(UserRole.ADMIN),
     OrderController.changeOrderStatus
 )
 

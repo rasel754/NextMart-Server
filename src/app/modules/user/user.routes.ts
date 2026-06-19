@@ -31,9 +31,15 @@ router.patch(
 );
 
 router.patch(
-   '/:id/status',
+   '/:userId/status',
    auth(UserRole.ADMIN),
    UserController.updateUserStatus
+);
+
+router.patch(
+   '/:userId/role',
+   auth(UserRole.ADMIN),
+   UserController.updateUserRole
 );
 
 export const UserRoutes = router;

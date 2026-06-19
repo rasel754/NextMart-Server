@@ -7,6 +7,7 @@ import { calculateDiscount } from './coupon.utils';
 import { IJwtPayload } from '../auth/auth.interface';
 import User from '../user/user.model';
 import Shop from '../shop/shop.model';
+import { Order } from '../order/order.model';
 
 const createCoupon = async (couponData: Partial<ICoupon>, authUser: IJwtPayload) => {
    const user = await User.findById(authUser.userId);
@@ -126,10 +127,63 @@ const deleteCoupon = async (couponId: string) => {
    return { message: 'Coupon deleted successfully.' };
 };
 
+const validateCoupon = async (couponCode: string, orderAmount: number, authUser: IJwtPayload) => {
+   const currentDate = new Date();
+   
+   const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
+   if (!coupon) {
+      throw new AppError(StatusCodes.NOT_FOUND, 'Coupon not found.');
+   }
+
+   if (!coupon.isActive) {
+      throw new AppError(StatusCodes.BAD_REQUEST, 'Coupon is inactive.');
+   }
+
+   const expiryDate = coupon.expiresAt || coupon.endDate;
+   if (expiryDate < currentDate) {
+      throw new AppError(StatusCodes.BAD_REQUEST, 'Coupon has expired.');
+   }
+
+   if (coupon.startDate > currentDate) {
+      throw new AppError(StatusCodes.BAD_REQUEST, 'Coupon has not started yet.');
+   }
+
+   const minAmt = coupon.minimumOrderAmount !== undefined ? coupon.minimumOrderAmount : coupon.minOrderAmount;
+   if (orderAmount < minAmt) {
+      throw new AppError(StatusCodes.BAD_REQUEST, `Minimum order amount of ${minAmt} is required.`);
+   }
+
+   if (coupon.usageLimit !== undefined && coupon.usageLimit !== null) {
+      if (coupon.usageCount >= coupon.usageLimit) {
+         throw new AppError(StatusCodes.BAD_REQUEST, 'Coupon usage limit has been reached.');
+      }
+   }
+
+   if (coupon.perUserLimit !== undefined && coupon.perUserLimit !== null) {
+      const userUsageCount = await Order.countDocuments({
+         user: authUser.userId,
+         coupon: coupon._id,
+         status: { $ne: 'Cancelled' }
+      });
+      if (userUsageCount >= coupon.perUserLimit) {
+         throw new AppError(StatusCodes.BAD_REQUEST, `You have reached the limit of ${coupon.perUserLimit} uses for this coupon.`);
+      }
+   }
+
+   const discountAmount = calculateDiscount(coupon, orderAmount);
+
+   return {
+      discountType: coupon.discountType,
+      discountValue: coupon.discountValue,
+      applicableAmount: discountAmount
+   };
+};
+
 export const CouponService = {
    createCoupon,
    getAllCoupon,
    updateCoupon,
    getCouponByCode,
    deleteCoupon,
+   validateCoupon,
 };
