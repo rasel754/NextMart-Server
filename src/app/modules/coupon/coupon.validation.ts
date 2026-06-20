@@ -18,8 +18,9 @@ export const updateCouponValidationSchema = z.object({
          discountValue: z.number().min(0).optional(),
          minOrderAmount: z.number().min(0).optional(),
          maxDiscountAmount: z.number().nullable().optional(),
-         startDate: z.date().optional(),
-         endDate: z.date().optional(),
+         startDate: z.preprocess((val) => (typeof val === 'string' ? new Date(val) : val), z.date()).optional(),
+         endDate: z.preprocess((val) => (typeof val === 'string' ? new Date(val) : val), z.date()).optional(),
+         usageLimit: z.number().min(1).optional(),
          isActive: z.boolean().optional(),
       })
       .strict(),

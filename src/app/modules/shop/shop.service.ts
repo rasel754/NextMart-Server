@@ -6,7 +6,8 @@ import User from "../user/user.model";
 import AppError from "../../errors/appError";
 import { StatusCodes } from "http-status-codes";
 import Shop from "./shop.model";
-
+import QueryBuilder from "../../builder/QueryBuilder";
+import { Product } from "../product/product.model";
 const createShop = async (shopData: Partial<IShop>, logo: IImageFile, authUser: IJwtPayload) => {
 
   const session = await mongoose.startSession();
@@ -61,9 +62,68 @@ const getMyShop = async (authUser: IJwtPayload) => {
 
   const shop = await Shop.findOne({ user: existingUser._id }).populate('user');
   return shop;
-}
+};
+
+const getAllShops = async (query: Record<string, unknown>) => {
+  const shopQuery = new QueryBuilder(Shop.find().populate('user'), query)
+    .search(['shopName'])
+    .filter()
+    .sort()
+    .paginate()
+    .fields();
+
+  const result = await shopQuery.modelQuery;
+  const meta = await shopQuery.countTotal();
+  return { result, meta };
+};
+
+const getSingleShop = async (id: string) => {
+  const result = await Shop.findById(id).populate('user');
+  if (!result) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found!');
+  }
+  return result;
+};
+
+const toggleShopStatus = async (id: string, status: string) => {
+  const shop = await Shop.findById(id);
+  if (!shop) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found!');
+  }
+
+  const isActive = status === 'active';
+  shop.isActive = isActive;
+  const result = await shop.save();
+
+  // Suspend/activate products associated with this shop
+  await Product.updateMany({ shop: id }, { isActive });
+
+  return result;
+};
+
+const deleteShop = async (id: string) => {
+  const shop = await Shop.findById(id);
+  if (!shop) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found!');
+  }
+
+  // Deleting a shop should also deactivate/hide all products under it
+  await Product.updateMany({ shop: id }, { isActive: false });
+
+  // Update hasShop
+  if (shop.user) {
+    await User.findByIdAndUpdate(shop.user, { hasShop: false });
+  }
+
+  const result = await Shop.findByIdAndDelete(id);
+  return result;
+};
 
 export const ShopService = {
   createShop,
-  getMyShop
-}
+  getMyShop,
+  getAllShops,
+  getSingleShop,
+  toggleShopStatus,
+  deleteShop
+};

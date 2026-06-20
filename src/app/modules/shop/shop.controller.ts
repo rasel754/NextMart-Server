@@ -34,7 +34,56 @@ const getMyShop = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAllShops = catchAsync(async (req: Request, res: Response) => {
+  const result = await ShopService.getAllShops(req.query);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Shops fetched successfully!',
+    meta: result.meta,
+    data: result.result
+  });
+});
+
+const getSingleShop = catchAsync(async (req: Request, res: Response) => {
+  const result = await ShopService.getSingleShop(req.params.id);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Shop fetched successfully!',
+    data: result
+  });
+});
+
+const toggleShopStatus = catchAsync(async (req: Request, res: Response) => {
+  const result = await ShopService.toggleShopStatus(req.params.id, req.body.status);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Shop status toggled successfully!',
+    data: result
+  });
+});
+
+const deleteShop = catchAsync(async (req: Request, res: Response) => {
+  const result = await ShopService.deleteShop(req.params.id);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Shop deleted successfully!',
+    data: result
+  });
+});
+
 export const ShopController = {
   createShop,
-  getMyShop
-}
+  getMyShop,
+  getAllShops,
+  getSingleShop,
+  toggleShopStatus,
+  deleteShop
+};

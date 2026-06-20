@@ -33,10 +33,9 @@ router.post(
 
 router.get('/:productId', ProductController.getSingleProduct);
 
-
 router.post(
    '/',
-   auth(UserRole.USER),
+   auth(UserRole.ADMIN, UserRole.USER),
    multerUpload.fields([{ name: 'images', maxCount: 5 }]),
    parseBody,
    validateRequest(productValidation.createProductValidationSchema),
@@ -45,7 +44,7 @@ router.post(
 
 router.patch(
    '/:productId',
-   auth(UserRole.USER),
+   auth(UserRole.ADMIN, UserRole.USER),
    multerUpload.fields([{ name: 'images', maxCount: 5 }]),
    parseBody,
    ProductController.updateProduct
@@ -53,8 +52,7 @@ router.patch(
 
 router.delete(
    '/:productId',
-   auth(UserRole.USER),
+   auth(UserRole.ADMIN, UserRole.USER),
    ProductController.deleteProduct
 );
-
 export const ProductRoutes = router;

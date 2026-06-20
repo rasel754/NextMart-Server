@@ -70,6 +70,10 @@ const updateCoupon = async (payload: Partial<ICoupon>, couponCode: string) => {
       throw new AppError(StatusCodes.BAD_REQUEST, 'Coupon has expired.');
    }
 
+   if (payload.endDate) {
+      payload.expiresAt = payload.endDate;
+   }
+
    const updatedCoupon = await Coupon.findByIdAndUpdate(
       coupon._id,
       { $set: payload },
@@ -122,7 +126,14 @@ const deleteCoupon = async (couponId: string) => {
       throw new AppError(StatusCodes.NOT_FOUND, 'Coupon not found.');
    }
 
-   await Coupon.updateOne({ _id: coupon._id }, { isDeleted: true });
+   if (coupon.usageCount > 0) {
+      throw new AppError(
+         StatusCodes.BAD_REQUEST,
+         'Cannot delete a used coupon — expire it instead.'
+      );
+   }
+
+   await Coupon.findByIdAndDelete(couponId);
 
    return { message: 'Coupon deleted successfully.' };
 };

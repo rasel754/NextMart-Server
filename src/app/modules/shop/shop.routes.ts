@@ -15,7 +15,6 @@ router.get(
     auth(UserRole.USER),
     ShopController.getMyShop
 )
-
 router.post(
     '/',
     auth(UserRole.USER),
@@ -23,6 +22,30 @@ router.post(
     parseBody,
     validateRequest(ShopValidation.createShopValidation),
     ShopController.createShop
-)
+);
+
+router.get(
+    '/',
+    auth(UserRole.ADMIN),
+    ShopController.getAllShops
+);
+
+router.get(
+    '/:id',
+    auth(UserRole.ADMIN, UserRole.USER),
+    ShopController.getSingleShop
+);
+
+router.patch(
+    '/:id/status',
+    auth(UserRole.ADMIN),
+    ShopController.toggleShopStatus
+);
+
+router.delete(
+    '/:id',
+    auth(UserRole.ADMIN),
+    ShopController.deleteShop
+);
 
 export const ShopRoutes = router;

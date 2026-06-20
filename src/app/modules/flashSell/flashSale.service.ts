@@ -79,9 +79,87 @@ const getActiveFlashSalesService = async (query: Record<string, unknown>) => {
   };
 };
 
+const getAllFlashSalesSchedules = async (query: Record<string, unknown>) => {
+  const flashSaleQuery = new QueryBuilder(
+    FlashSale.find()
+      .populate({
+        path: 'product',
+        populate: { path: 'category brand shop' }
+      }),
+    query
+  )
+    .paginate();
 
+  const result = await flashSaleQuery.modelQuery.lean();
+  const meta = await flashSaleQuery.countTotal();
+
+  return {
+    meta,
+    result,
+  };
+};
+
+const updateFlashSale = async (id: string, payload: Partial<IFlashSale>) => {
+  const sale = await FlashSale.findById(id);
+  if (!sale) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'Flash sale schedule not found.');
+  }
+
+  const updatedSale = await FlashSale.findByIdAndUpdate(
+    id,
+    { $set: payload },
+    { new: true, runValidators: true }
+  );
+
+  if (!updatedSale) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Failed to update flash sale.');
+  }
+
+  // Immediate adjustment for active status
+  const now = new Date();
+  const isCurrentlyActive = new Date(updatedSale.startTime) <= now && new Date(updatedSale.endTime) >= now;
+  const product = await Product.findById(updatedSale.product);
+  if (product) {
+    if (isCurrentlyActive) {
+      const discount = (updatedSale.discountPercentage / 100) * product.price;
+      product.flashSalePrice = product.price - discount;
+      product.isOnFlashSale = true;
+      await product.save();
+      updatedSale.isActive = true;
+      await updatedSale.save();
+    } else {
+      product.flashSalePrice = null;
+      product.isOnFlashSale = false;
+      await product.save();
+      updatedSale.isActive = false;
+      await updatedSale.save();
+    }
+  }
+
+  return updatedSale;
+};
+
+const deleteFlashSale = async (id: string) => {
+  const sale = await FlashSale.findById(id);
+  if (!sale) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'Flash sale schedule not found.');
+  }
+
+  const product = await Product.findById(sale.product);
+  if (product) {
+    product.flashSalePrice = null;
+    product.isOnFlashSale = false;
+    await product.save();
+  }
+
+  await FlashSale.findByIdAndDelete(id);
+  return { message: 'Flash sale schedule deleted successfully.' };
+};
 
 export const FlashSaleService = {
   createFlashSale,
-  getActiveFlashSalesService
-}
+  getActiveFlashSalesService,
+  getAllFlashSalesSchedules,
+  updateFlashSale,
+  deleteFlashSale
+};

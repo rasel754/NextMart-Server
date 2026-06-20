@@ -33,7 +33,46 @@ const getActiveFlashSalesService = catchAsync(async (req: Request, res: Response
   });
 });
 
+const getAllFlashSalesSchedules = catchAsync(async (req: Request, res: Response) => {
+  const result = await FlashSaleService.getAllFlashSalesSchedules(req.query);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'All Flash sale schedules fetched successfully',
+    meta: result.meta,
+    data: result.result
+  });
+});
+
+const updateFlashSale = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await FlashSaleService.updateFlashSale(id, req.body);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Flash sale updated successfully',
+    data: result,
+  });
+});
+
+const deleteFlashSale = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await FlashSaleService.deleteFlashSale(id);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: result.message,
+    data: null,
+  });
+});
+
 export const FlashSaleController = {
   createFlashSale,
-  getActiveFlashSalesService
-}
+  getActiveFlashSalesService,
+  getAllFlashSalesSchedules,
+  updateFlashSale,
+  deleteFlashSale
+};
