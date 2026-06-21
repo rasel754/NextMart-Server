@@ -6,6 +6,7 @@ export interface IOrderProduct {
   quantity: number;
   unitPrice: number;
   color: string;
+  shop: Types.ObjectId;
 }
 
 export interface IOrder extends Document {

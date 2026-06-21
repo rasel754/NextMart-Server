@@ -7,14 +7,22 @@ import { multerUpload } from '../../config/multer.config';
 import validateRequest from '../../middleware/validateRequest';
 import { ShopValidation } from './shop.validation';
 
-
 const router = Router();
 
 router.get(
     '/my-shop',
     auth(UserRole.USER),
     ShopController.getMyShop
-)
+);
+
+router.patch(
+    '/my-shop',
+    auth(UserRole.USER),
+    multerUpload.single('logo'),
+    parseBody,
+    ShopController.updateMyShop
+);
+
 router.post(
     '/',
     auth(UserRole.USER),

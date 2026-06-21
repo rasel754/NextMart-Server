@@ -37,6 +37,11 @@ const orderSchema = new Schema<IOrder>(
           type: String,
           required: true,
         },
+        shop: {
+          type: Schema.Types.ObjectId,
+          ref: "Shop",
+          required: true,
+        },
       },
     ],
     coupon: {
@@ -104,12 +109,15 @@ orderSchema.pre("validate", async function (next) {
     if (!product) {
       return next(new Error(`Product not found!.`));
     }
-    if (shopId && String(shopId) !== String(product.shop._id)) {
-      return next(new Error("Products must be from the same shop."));
-    }
 
+    // Assign shop field to line item
     //@ts-ignore
-    shopId = product.shop._id;
+    item.shop = product.shop._id;
+
+    if (!shopId) {
+      //@ts-ignore
+      shopId = product.shop._id;
+    }
 
     const offerPrice = (await product?.calculateOfferPrice()) || 0;
 
@@ -118,7 +126,6 @@ orderSchema.pre("validate", async function (next) {
 
     item.unitPrice = productPrice;
     const price = productPrice * item.quantity;
-    console.log(price);
     totalAmount += price;
   }
 

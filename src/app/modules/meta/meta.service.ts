@@ -169,20 +169,28 @@ const getVendorMeta = async (authUser: IJwtPayload) => {
    const totalRevenueAgg = await Order.aggregate([
       {
          $match: {
-            shop: shop._id,
+            "products.shop": shop._id,
             paymentStatus: 'Paid'
+         }
+      },
+      {
+         $unwind: '$products'
+      },
+      {
+         $match: {
+            "products.shop": shop._id
          }
       },
       {
          $group: {
             _id: null,
-            total: { $sum: '$finalAmount' }
+            total: { $sum: { $multiply: ['$products.quantity', '$products.unitPrice'] } }
          }
       }
    ]);
    const totalRevenue = totalRevenueAgg[0]?.total || 0;
 
-   const totalOrders = await Order.countDocuments({ shop: shop._id });
+   const totalOrders = await Order.countDocuments({ "products.shop": shop._id });
    const totalProducts = await Product.countDocuments({ shop: shop._id });
 
    const sixMonthsAgo = new Date();
@@ -194,9 +202,17 @@ const getVendorMeta = async (authUser: IJwtPayload) => {
    const monthlySalesAgg = await Order.aggregate([
       {
          $match: {
-            shop: shop._id,
+            "products.shop": shop._id,
             paymentStatus: 'Paid',
             createdAt: { $gte: sixMonthsAgo }
+         }
+      },
+      {
+         $unwind: '$products'
+      },
+      {
+         $match: {
+            "products.shop": shop._id
          }
       },
       {
@@ -205,7 +221,7 @@ const getVendorMeta = async (authUser: IJwtPayload) => {
                year: { $year: '$createdAt' },
                month: { $month: '$createdAt' }
             },
-            revenue: { $sum: '$finalAmount' }
+            revenue: { $sum: { $multiply: ['$products.quantity', '$products.unitPrice'] } }
          }
       }
    ]);
@@ -225,12 +241,17 @@ const getVendorMeta = async (authUser: IJwtPayload) => {
    const categoryRevenue = await Order.aggregate([
       {
          $match: {
-            shop: shop._id,
+            "products.shop": shop._id,
             paymentStatus: 'Paid'
          }
       },
       {
          $unwind: '$products'
+      },
+      {
+         $match: {
+            "products.shop": shop._id
+         }
       },
       {
          $lookup: {
@@ -276,15 +297,23 @@ const getVendorMeta = async (authUser: IJwtPayload) => {
    const todaySalesAgg = await Order.aggregate([
       {
          $match: {
-            shop: shop._id,
+            "products.shop": shop._id,
             paymentStatus: 'Paid',
             createdAt: { $gte: todayStart }
          }
       },
       {
+         $unwind: '$products'
+      },
+      {
+         $match: {
+            "products.shop": shop._id
+         }
+      },
+      {
          $group: {
             _id: null,
-            total: { $sum: '$finalAmount' }
+            total: { $sum: { $multiply: ['$products.quantity', '$products.unitPrice'] } }
          }
       }
    ]);

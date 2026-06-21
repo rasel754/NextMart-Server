@@ -20,6 +20,12 @@ router.get(
 );
 
 router.get(
+   '/my-products',
+   auth(UserRole.USER),
+   ProductController.getMyShopProducts
+);
+
+router.get(
    '/wishlist',
    auth(UserRole.USER),
    ProductController.getWishlist

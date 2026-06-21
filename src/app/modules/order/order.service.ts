@@ -174,13 +174,13 @@ const getMyShopOrders = async (
   const shopIsActive = await Shop.findOne({
     user: userHasShop._id,
     isActive: true,
-  }).select("isActive");
+  });
 
   if (!shopIsActive)
     throw new AppError(StatusCodes.BAD_REQUEST, "Shop is not active!");
 
   const orderQuery = new QueryBuilder(
-    Order.find({ shop: shopIsActive._id }).populate(
+    Order.find({ "products.shop": shopIsActive._id }).populate(
       "user products.product coupon"
     ),
     query
@@ -195,9 +195,20 @@ const getMyShopOrders = async (
 
   const meta = await orderQuery.countTotal();
 
+  // Strip out line items that don't belong to this vendor before returning
+  const scopedResult = result.map((order: any) => {
+    const orderObj = order.toObject ? order.toObject() : order;
+    return {
+      ...orderObj,
+      products: orderObj.products.filter(
+        (p: any) => p.shop && p.shop.toString() === shopIsActive._id.toString()
+      ),
+    };
+  });
+
   return {
     meta,
-    result,
+    result: scopedResult,
   };
 };
 

@@ -79,9 +79,25 @@ const deleteShop = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateMyShop = catchAsync(async (req: Request, res: Response) => {
+  const result = await ShopService.updateMyShop(
+    req.body,
+    req.file as IImageFile,
+    req.user as IJwtPayload
+  );
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Shop updated successfully!',
+    data: result
+  });
+});
+
 export const ShopController = {
   createShop,
   getMyShop,
+  updateMyShop,
   getAllShops,
   getSingleShop,
   toggleShopStatus,

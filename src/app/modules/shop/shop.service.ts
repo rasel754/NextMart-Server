@@ -119,9 +119,36 @@ const deleteShop = async (id: string) => {
   return result;
 };
 
+const updateMyShop = async (shopData: Partial<IShop>, logo: IImageFile, authUser: IJwtPayload) => {
+  const existingUser = await User.findById(authUser.userId);
+  if (!existingUser) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'User not found!');
+  }
+
+  const shop = await Shop.findOne({ user: existingUser._id });
+  if (!shop) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found!');
+  }
+
+  if (logo) {
+    shopData.logo = logo.path;
+  }
+
+  // Strip read-only/sensitive fields
+  delete shopData.user;
+  delete shopData.isActive;
+
+  const result = await Shop.findByIdAndUpdate(shop._id, shopData, {
+    new: true,
+    runValidators: true,
+  });
+  return result;
+};
+
 export const ShopService = {
   createShop,
   getMyShop,
+  updateMyShop,
   getAllShops,
   getSingleShop,
   toggleShopStatus,
