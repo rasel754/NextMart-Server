@@ -13,6 +13,7 @@ export interface IShop extends Document {
   socialMediaLinks?: Map<string, string>;
   taxIdentificationNumber: string;
   logo?: string;
+  isOfficial?: boolean;
   isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;

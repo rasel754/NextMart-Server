@@ -2,6 +2,7 @@ import User from '../modules/user/user.model';
 import { UserRole } from '../modules/user/user.interface';
 import { Category } from '../modules/category/category.model';
 import { Brand } from '../modules/brand/brand.model';
+import Shop from '../modules/shop/shop.model';
 
 const seedAdminAndData = async () => {
    try {
@@ -85,6 +86,24 @@ const seedAdminAndData = async () => {
             });
             console.log(`Brand "${brand.name}" seeded.`);
          }
+      }
+
+      // 5. Seed NextMart Official Store Shop
+      const existingOfficialShop = await Shop.findOne({ isOfficial: true });
+      if (!existingOfficialShop) {
+         await Shop.create({
+            shopName: 'NextMart Official Store',
+            businessLicenseNumber: 'OFFICIAL-SYSTEM-LICENSE-999',
+            address: 'NextMart HQ, Dhaka, Bangladesh',
+            contactNumber: '+8801700000000',
+            servicesOffered: ['Retail', 'Platform Sales'],
+            establishedYear: 2026,
+            taxIdentificationNumber: 'OFFICIAL-SYSTEM-TIN-999',
+            logo: 'https://res.cloudinary.com/nextmart/image/upload/v1700000000/nextmart-official-logo.png',
+            user: null,
+            isOfficial: true,
+            isActive: true,
+         });
       }
    } catch (error) {
       console.error('Error during seeding:', error);

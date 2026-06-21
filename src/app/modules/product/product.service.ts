@@ -423,6 +423,7 @@ const getMyShopProducts = async (query: Record<string, unknown>, authUser: IJwtP
       result: productsWithOfferPrice,
    };
 };
+
 const updateProduct = async (
    productId: string,
    payload: Partial<IProduct>,
@@ -442,6 +443,8 @@ const updateProduct = async (
    let product;
    if (authUser.role === UserRole.ADMIN) {
       product = await Product.findById(productId);
+      // Strip shop from update payload for admins
+      delete (payload as any).shop;
    } else {
       const shop = await Shop.findOne({ user: user._id });
       if (!shop) {
@@ -498,8 +501,50 @@ const deleteProduct = async (productId: string, authUser: IJwtPayload) => {
 
    return await Product.findByIdAndDelete(productId);
 };
+
+const createOfficialProductIntoDB = async (
+   productData: Partial<IProduct>,
+   productImages: IImageFiles
+) => {
+   const officialShop = await Shop.findOne({ isOfficial: true });
+   if (!officialShop) {
+      throw new AppError(
+         StatusCodes.INTERNAL_SERVER_ERROR,
+         "Official store not found. Please contact a developer to re-run the seed script."
+      );
+   }
+
+   const { images } = productImages;
+   if (!images || images.length === 0) {
+      throw new AppError(
+         StatusCodes.BAD_REQUEST,
+         'Product images are required.'
+      );
+   }
+
+   productData.imageUrls = images.map((image) => image.path);
+
+   const isCategoryExists = await Category.findById(productData.category);
+   if (!isCategoryExists) {
+      throw new AppError(StatusCodes.BAD_REQUEST, 'Category does not exist!');
+   }
+
+   if (!isCategoryExists.isActive) {
+      throw new AppError(StatusCodes.BAD_REQUEST, 'Category is not active!');
+   }
+
+   const newProduct = new Product({
+      ...productData,
+      shop: officialShop._id,
+   });
+
+   const result = await newProduct.save();
+   return result;
+};
+
 export const ProductService = {
    createProduct,
+   createOfficialProductIntoDB,
    getAllProduct,
    getTrendingProducts,
    getSingleProduct,

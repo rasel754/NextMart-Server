@@ -6,35 +6,63 @@ import { Coupon } from './coupon.model';
 import { calculateDiscount } from './coupon.utils';
 import { IJwtPayload } from '../auth/auth.interface';
 import User from '../user/user.model';
+import { UserRole } from '../user/user.interface';
 import Shop from '../shop/shop.model';
 import { Order } from '../order/order.model';
 
-const createCoupon = async (couponData: Partial<ICoupon>, authUser: IJwtPayload) => {
-   const user = await User.findById(authUser.userId);
-   if (!user) {
-      throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
+const createCoupon = async (
+   couponData: Partial<ICoupon> & { limit?: number; expiresAt?: string | Date },
+   authUser: IJwtPayload
+) => {
+   let shopId;
+
+   if (authUser.role === UserRole.ADMIN) {
+      const officialShop = await Shop.findOne({ isOfficial: true });
+      if (!officialShop) {
+         throw new AppError(
+            StatusCodes.INTERNAL_SERVER_ERROR,
+            'Official store not found. Please contact a developer to re-run the seed script.'
+         );
+      }
+      shopId = officialShop._id;
+   } else {
+      const user = await User.findById(authUser.userId);
+      if (!user) {
+         throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
+      }
+
+      if (!user.hasShop) {
+         throw new AppError(
+            StatusCodes.FORBIDDEN,
+            'Only shop owners can create coupons'
+         );
+      }
+
+      const shop = await Shop.findOne({
+         user: user._id,
+         isActive: true
+      }).select('_id');
+
+      if (!shop) {
+         throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found');
+      }
+      shopId = shop._id;
    }
 
-   if (!user.hasShop) {
-      throw new AppError(
-         StatusCodes.FORBIDDEN,
-         'Only shop owners can create coupons'
-      );
-   }
-
-   const shop = await Shop.findOne({
-      user: user._id,
-      isActive: true
-   }).select('_id');
-
-   if (!shop) {
-      throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found');
-   }
+   const startDate = couponData.startDate || new Date();
+   const expiresAtDate = couponData.expiresAt ? new Date(couponData.expiresAt) : undefined;
+   const endDate = couponData.endDate || expiresAtDate;
+   const usageLimit = couponData.usageLimit !== undefined ? couponData.usageLimit : couponData.limit;
 
    const coupon = new Coupon({
       ...couponData,
-      shop: shop._id
+      shop: shopId,
+      startDate,
+      endDate,
+      expiresAt: expiresAtDate || endDate,
+      usageLimit,
    });
+
    return await coupon.save();
 };
 

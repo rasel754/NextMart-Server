@@ -91,6 +91,10 @@ const toggleShopStatus = async (id: string, status: string) => {
     throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found!');
   }
 
+  if (shop.isOfficial) {
+    throw new AppError(StatusCodes.FORBIDDEN, 'The NextMart Official Store cannot be suspended.');
+  }
+
   const isActive = status === 'active';
   shop.isActive = isActive;
   const result = await shop.save();
@@ -105,6 +109,10 @@ const deleteShop = async (id: string) => {
   const shop = await Shop.findById(id);
   if (!shop) {
     throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found!');
+  }
+
+  if (shop.isOfficial) {
+    throw new AppError(StatusCodes.FORBIDDEN, 'The NextMart Official Store cannot be deleted.');
   }
 
   // Deleting a shop should also deactivate/hide all products under it

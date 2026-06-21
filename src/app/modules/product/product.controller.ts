@@ -7,14 +7,20 @@ import sendResponse from "../../utils/sendResponse";
 import { StatusCodes } from "http-status-codes";
 
 const createProduct = catchAsync(async (req: Request, res: Response) => {
-  const result = await ProductService.createProduct(
-    req.body,
-    req.files as IImageFiles,
-    req.user as IJwtPayload
-  );
+  const result =
+    req.user.role === "admin"
+      ? await ProductService.createOfficialProductIntoDB(
+          req.body,
+          req.files as IImageFiles
+        )
+      : await ProductService.createProduct(
+          req.body,
+          req.files as IImageFiles,
+          req.user as IJwtPayload
+        );
 
   sendResponse(res, {
-    statusCode: StatusCodes.OK,
+    statusCode: StatusCodes.CREATED,
     success: true,
     message: "Product created successfully",
     data: result,

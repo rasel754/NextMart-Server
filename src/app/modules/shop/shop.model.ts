@@ -57,6 +57,10 @@ const shopSchema = new Schema<IShop>(
       type: String,
       default: null,
     },
+    isOfficial: {
+      type: Boolean,
+      default: false,
+    },
     isActive: {
       type: Boolean,
       default: true,
@@ -65,6 +69,11 @@ const shopSchema = new Schema<IShop>(
   {
     timestamps: true,
   }
+);
+
+shopSchema.index(
+  { isOfficial: 1 },
+  { unique: true, partialFilterExpression: { isOfficial: true } }
 );
 
 const Shop: Model<IShop> = mongoose.model<IShop>("Shop", shopSchema);

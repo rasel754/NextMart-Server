@@ -54,6 +54,9 @@ const auth = (...requiredRoles: UserRole[]) => {
                   )
                );
             }
+            if (error instanceof AppError) {
+               return next(error);
+            }
             return next(
                new AppError(StatusCodes.UNAUTHORIZED, 'Invalid token!')
             );

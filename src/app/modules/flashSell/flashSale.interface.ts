@@ -10,7 +10,8 @@ export interface IFlashSale {
 }
 
 export interface ICreateFlashSaleInput {
-  products: string[];
+  products?: string[];
+  product?: string;
   discountPercentage: number;
   startTime: Date;
   endTime: Date;
