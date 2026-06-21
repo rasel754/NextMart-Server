@@ -44,9 +44,13 @@ async function bootstrap() {
       // Initialize background cron jobs
       startCronJobs();
 
-      server = app.listen(config.port, () => {
-         console.log(`🚀 Application is running on port ${config.port}`);
-      });
+      if (!process.env.VERCEL) {
+         server = app.listen(config.port, () => {
+            console.log(`🚀 Application is running on port ${config.port}`);
+         });
+      } else {
+         console.log('🚀 Running in serverless environment');
+      }
 
       // Listen for termination signals
       process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
@@ -70,3 +74,5 @@ async function bootstrap() {
 
 // Start the application
 bootstrap();
+
+export default app;
