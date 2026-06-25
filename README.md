@@ -1,17 +1,27 @@
-# 🛒 NextMart - High-Performance E-Commerce Backend
+# ⚙️ NextMart - High-Performance E-Commerce Backend
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Mongoose](https://img.shields.io/badge/Mongoose-880000?style=for-the-badge&logo=mongoose&logoColor=white)](https://mongoosejs.com/)
-[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Express.js](https://img.shields.io/badge/Express.js-4.21-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-8.9-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 
-NextMart Backend is a robust, scalable, enterprise-grade server-side application designed to power single-vendor and multi-vendor e-commerce platforms. Built on top of **Node.js**, **Express.js**, and **MongoDB** using **TypeScript**, this backend incorporates modern architectural patterns, strict type-checking, robust validation, token-based authentication, multi-layered authorization, payment gateway integration, automatic PDF receipt generation, email notification services, and real-time dashboard analytics.
+NextMart Server is a robust, scalable, enterprise-grade server-side application designed to power single-vendor and multi-vendor e-commerce platforms. Built on top of **Node.js**, **Express.js**, and **MongoDB** using **TypeScript**, this backend incorporates modern architectural patterns, strict schema-based validation, token-based authentication, multi-layered authorization, payment gateway integration, automatic PDF receipt generation, email notification services, and real-time dashboard analytics.
 
 ---
 
-## 🏗️ Architecture Design & Design Patterns
+## 🌐 Live Deployments & Repository Links
+
+| Component | Live Link | Repository |
+| :--- | :--- | :--- |
+| **Backend Server** | [next-mart-server-taupe.vercel.app](https://next-mart-server-taupe.vercel.app/) | [GitHub Repository](https://github.com/rasel754/NextMart-Server) |
+| **Frontend Client** | [next-mart-client-sable.vercel.app](https://next-mart-client-sable.vercel.app/) | [GitHub Repository](https://github.com/rasel754/NextMart-Client) |
+
+📩 **Connect with Me:** [LinkedIn Profile](https://www.linkedin.com/in/rasel754)
+
+---
+
+## 🏗️ Architecture Design & Modularity
 
 NextMart Server adheres to a clean, decoupled **Modular Architecture**. Each domain/feature is encapsulated inside its own module within `src/app/modules/`. This design minimizes side effects, improves maintainability, and simplifies developer scaling.
 
@@ -41,17 +51,17 @@ graph TD
 
 ---
 
-## 🛠️ Technology Stack
+## ⚙️ Technology Stack
 
 | Technology / Library | Purpose | Key Details |
-|:---|:---|:---|
+| :--- | :--- | :--- |
 | **TypeScript** | Strict Typing & Code Safety | Compiles to clean ESM/CommonJS Node modules. |
 | **Express.js** | HTTP Web Framework | Fast, unopinionated, minimalist framework for RESTful routing. |
 | **MongoDB & Mongoose** | Database & Object Modeling | NoSQL storage utilizing transactional sessions (`startTransaction`). |
 | **Zod** | Request Validation | Schema parsing and client error formatting. |
 | **JWT (JsonWebToken)** | Token-based Authentication | Uses Access, Refresh, Password Reset, and OTP verification tokens. |
 | **Bcrypt** | Password Hashing | Secures user passwords using a 12-round salt work factor. |
-| **SSLCommerz (sslcommerz-lts)** | Payment Gateway | Handles payments in BDT with automated IPN (Instant Payment Notification). |
+| **SSLCommerz** | Payment Gateway | Handles payments in BDT with automated IPN (Instant Payment Notification). |
 | **Nodemailer** | SMTP Email Client | Integrated with Gmail SMTP to deliver invoices and password reset OTPs. |
 | **Handlebars (hbs)** | Dynamic HTML Templating | Powers reusable responsive email templates. |
 | **PDFKit** | PDF Generation | Automatically generates invoices with layout, items, and pricing dynamically. |
@@ -63,62 +73,76 @@ graph TD
 
 ## ✨ Key Functionalities & Features
 
-### 1. Secure Authentication & Auditing (`auth` & `user` modules)
-*   **JWT Implementation**: Double-token architecture (Access token expires in 7 days; Refresh token in 1 year). Cookie-based storage option available.
+### 🛡️ 1. Secure Authentication & Auditing (`auth` & `user` modules)
+*   **JWT Implementation**: Double-token architecture (Access token expires in 7d; Refresh token in 1y) stored and managed securely.
 *   **Security Actions**: Features standard "Change Password", "Forgot Password" (sends a temporary OTP to email), "Verify OTP", and "Reset Password" workflows.
 *   **Client Identification Auditing**: Every login/registration tracks IP address, Host name, device type (PC/Mobile), OS, browser, and user-agent through the custom `clientInfoParser` middleware.
 *   **User Management**: Administrators can ban, unban, or update the role status of any registered account.
 
-### 2. Multi-Vendor / Merchant Support (`shop` & `product` modules)
+### 🏪 2. Multi-Vendor / Merchant Support (`shop` & `product` modules)
 *   **Shop Management**: Users with vendor-level status can create and update their shop details (name, description, and logo via Cloudinary integration).
 *   **Product Inventory CRUD**: Vendors manage their own inventory. Support for product title, description, category, brand, stock level, pricing, flash-sell discounts, and multi-image galleries (handles array file uploads).
 *   **Trending & Feeds**: API dynamically highlights popular products based on customer views and sales metrics.
 
-### 3. Dynamic Brands & Categories (`brand` & `category` modules)
-*   **Brand & Category Config**: Controlled endpoints to add logos/icons for categories and brands. Standardizes product tagging.
-
-### 4. Promotion Engine (`coupon` & `flashSell` modules)
+### 🏷️ 3. Promotion Engine (`coupon` & `flashSell` modules)
 *   **Coupon Management**: Vendor-specific or site-wide coupon codes offering flat-rate or percentage discounts. Offers validation endpoints.
 *   **Flash Sales**: Schedule flash sales with start and end timestamps. The system computes real-time pricing and tags active flash sale items dynamically.
 
-### 5. Review & Feedback Loop (`review` module)
-*   **Product Reviews**: Authenticated customers can write reviews and rate products.
-
-### 6. Order Processing & Transaction Validation (`order` & `sslcommerz` modules)
+### 💳 4. Order Processing & Transaction Validation (`order` & `sslcommerz` modules)
 *   **Checkout Lifecycle**: Places orders, maps line-items to corresponding vendor shops, applies coupon codes, and initializes SSLCommerz payment gateway.
-*   **SSLCommerz Gateway Flow**:
-    *   Generates validation sessions.
-    *   Receives transaction query requests from sandbox/live gateways.
-    *   Ensures data integrity during state changes via Mongoose atomic transactions (`startTransaction` / `abortTransaction`).
+*   **SSLCommerz Gateway Flow**: Generates validation sessions and receives transaction query requests from sandbox/live gateways. Ensures data integrity during state changes via Mongoose atomic transactions (`startTransaction` / `abortTransaction`).
 *   **PDF Invoicing**: When payment is validated successfully, the backend uses `pdfkit` to build a professional payment invoice PDF.
 *   **Mail Dispatcher**: The PDF invoice is automatically sent as an attachment to the customer's email using custom Handlebars HTML templates.
 
-### 7. Dashboard Metadata Analytics (`meta` module)
+### 📊 5. Dashboard Metadata Analytics (`meta` module)
 *   **Admin Dashboard**: Aggregates site-wide key performance indicators (KPIs) such as total revenue, total registered shops, order counts, active/inactive vendors, and payment statistics.
 *   **Merchant Dashboard**: Retrieves shop-specific statistics (line-charts tracking sales over time, bar-charts representing orders per month, pie-charts showing category revenue shares, and today's sales metrics).
 
 ---
 
-## 🚀 Getting Started (Installation Guide)
+## 📦 Main Dependencies
+
+```json
+"dependencies": {
+  "express": "^4.21.2",
+  "mongoose": "^8.9.5",
+  "jsonwebtoken": "^9.0.2",
+  "bcrypt": "^5.1.1",
+  "zod": "^3.24.1",
+  "sslcommerz-lts": "^1.1.0",
+  "nodemailer": "^6.9.16",
+  "pdfkit": "^0.16.0",
+  "cloudinary": "^1.30.0",
+  "multer": "^1.4.5-lts.1",
+  "node-cron": "^4.4.1",
+  "winston": "^3.19.0",
+  "express-rate-limit": "^8.5.2",
+  "helmet": "^8.2.0"
+}
+```
+
+---
+
+## 🚀 Run Locally
 
 ### Prerequisites
 *   Node.js (Version 20 or higher)
 *   MongoDB Instance (Local Community Server or MongoDB Atlas cloud cluster)
-*   Yarn or NPM package manager
+*   NPM or Yarn package manager
 
 ### Installation Steps
 
 1.  **Clone the Repository**:
     ```bash
-    git clone https://github.com/Programming-Hero-Next-Level-Development/NextMart-Server.git
+    git clone https://github.com/rasel754/NextMart-Server.git
     cd NextMart-Server
     ```
 
 2.  **Install Dependencies**:
     ```bash
-    yarn install
-    # or
     npm install
+    # or
+    yarn install
     ```
 
 3.  **Configure Environment Variables**:
@@ -150,7 +174,7 @@ graph TD
     
     # Nodemailer SMTP Configuration
     SENDER_EMAIL="your_gmail_address@gmail.com"
-    SENDER_APP_PASS="your_gmail_app_password" # Generated via Google Account Settings
+    SENDER_APP_PASS="your_gmail_app_password"
     
     # SSLCommerz Payment Integration Details
     STORE_NAME="NextMart Sandbox"
@@ -166,9 +190,9 @@ graph TD
 
 4.  **Execute Server in Development Mode**:
     ```bash
-    yarn dev
-    # or
     npm run dev
+    # or
+    yarn dev
     ```
     Once running, the application serves endpoints at `http://localhost:3001`.
 
@@ -176,65 +200,21 @@ graph TD
 
 ## 🛠️ CLI Development Tool: Module Generator
 
-To enforce structure consistency and save boilerplate creation time, NextMart Server contains a custom automation script that sets up new workspace modules in a single step.
+NextMart Server contains a custom automation script that sets up new workspace modules in a single step, ensuring architectural consistency:
 
-### Command Execution:
 ```bash
-yarn create-module <module-name>
-# or
 npm run create-module <module-name>
+# or
+yarn create-module <module-name>
 ```
 
-**Example**:
-```bash
-yarn create-module inventory
-```
-
-This automatically generates the following files inside `src/app/modules/inventory/`:
-*   `inventory.interface.ts`
-*   `inventory.validation.ts`
-*   `inventory.model.ts`
-*   `inventory.routes.ts`
-*   `inventory.controller.ts`
-*   `inventory.service.ts`
-
----
-
-## 📦 Script Scripts Reference
-
-| Command | Action |
-|:---|:---|
-| `yarn dev` | Runs the server locally with auto-reload transpiled by `ts-node-dev`. |
-| `yarn build` | Compiles `.ts` files to plain JavaScript inside the `/dist` directory. |
-| `yarn start` | Launches compiled production code from `dist/server.js`. |
-| `yarn deploy` | Builds the production bundle and deploys live using the Vercel CLI. |
-| `yarn create-module <name>` | Runs the code generation helper script. |
-
----
-
-## ✈️ Deployment Procedures
-
-### ⚡ Deploying on Vercel
-The repository includes a ready-to-run `vercel.json` routing profile. 
-
-1. Ensure the Vercel CLI is installed: `npm i -g vercel`.
-2. Configure environmental variables inside the Vercel Web Dashboard.
-3. Deploy the application:
-   ```bash
-   vercel --prod
-   ```
-
-### 🐳 Containerization via Docker
-A multi-stage standard `Dockerfile` is present in the project root.
-
-1.  **Build the Container Image**:
-    ```bash
-    docker build -t nextmart-server .
-    ```
-2.  **Run the Containerized Service**:
-    ```bash
-    docker run -p 3001:3001 --env-file .env nextmart-server
-    ```
+This automatically generates the following files inside `src/app/modules/<module-name>/`:
+*   `<module-name>.interface.ts`
+*   `<module-name>.validation.ts`
+*   `<module-name>.model.ts`
+*   `<module-name>.routes.ts`
+*   `<module-name>.controller.ts`
+*   `<module-name>.service.ts`
 
 ---
 
@@ -243,7 +223,7 @@ A multi-stage standard `Dockerfile` is present in the project root.
 All API paths are prefix-bound to `/api/v1`.
 
 | API Endpoint | HTTP Method | Auth Role | Description |
-|:---|:---|:---|:---|
+| :--- | :--- | :--- | :--- |
 | `/auth/login` | `POST` | Public | Logs user in, collects client metadata. |
 | `/auth/refresh-token` | `POST` | Public | Renews Access Token. |
 | `/auth/forgot-password` | `POST` | Public | Triggers OTP validation mail. |
@@ -268,5 +248,21 @@ Find comprehensive path variables, parameters, header schemas, and sample bodies
 
 ---
 
+## 🐳 Containerization via Docker
+
+A multi-stage `Dockerfile` is present in the project root:
+
+1.  **Build the Container Image**:
+    ```bash
+    docker build -t nextmart-server .
+    ```
+2.  **Run the Containerized Service**:
+    ```bash
+    docker run -p 3001:3001 --env-file .env nextmart-server
+    ```
+
+---
+
 ## 📄 License
-This repository is licensed under the **[MIT License](https://opensource.org/licenses/MIT)**. Feel free to use, distribute, and modify.
+
+Distributed under the MIT License. See `LICENSE` for more information.
